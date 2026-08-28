@@ -1,0 +1,33 @@
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Prisma / AI assistant generated files
+backend/.agents/
+backend/.claude/
+backend/.cursor/
+backend/.devin/
+# AI assistant instruction files
+frontend/AGENTS.md
+frontend/CLAUDE.md

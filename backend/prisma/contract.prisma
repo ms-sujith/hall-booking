@@ -1,0 +1,89 @@
+// use prisma-next
+model User {
+  id        Int                  @id @default(autoincrement())
+  name      String
+  email     String               @unique
+  createdAt DateTime             @default(now())
+  updatedAt temporal.updatedAt()
+
+  hallOwner HallOwner?
+  bookings  Booking[]
+  reviews   Review[]
+}
+
+model HallOwner {
+  id        Int                  @id @default(autoincrement())
+  userId    Int                  @unique
+  phone     String?
+  createdAt DateTime             @default(now())
+  updatedAt temporal.updatedAt()
+
+  user      User                 @relation(fields:[userId], references:[id])
+  halls     Hall[]
+}
+
+model Hall {
+  id          Int                  @id @default(autoincrement())
+  ownerId     Int
+  name        String
+  description String?
+  address     String
+  city        String
+  capacity    Int
+  price       Decimal
+  imageUrl    String?
+  amenities   String?
+  createdAt   DateTime             @default(now())
+  updatedAt   temporal.updatedAt()
+
+  owner       HallOwner            @relation(fields:[ownerId], references:[id])
+  bookings    Booking[]
+  reviews     Review[]
+}
+
+model Booking {
+  id          Int                  @id @default(autoincrement())
+  userId      Int
+  hallId      Int
+  bookingDate DateTime
+  startTime   String
+  endTime     String?
+  guests      Int
+  totalAmount Decimal
+  status      String               @default("PENDING")
+  createdAt   DateTime             @default(now())
+  updatedAt   temporal.updatedAt()
+
+  user        User                 @relation(fields:[userId], references:[id])
+  hall        Hall                 @relation(fields:[hallId], references:[id])
+  payment     Payment?
+}
+
+model Payment {
+  id            Int                  @id @default(autoincrement())
+  bookingId     Int                  @unique
+  amount        Decimal
+  paymentMethod String
+  transactionId String?              @unique
+  status        String               @default("PENDING")
+  paidAt        DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     temporal.updatedAt()
+
+  booking       Booking              @relation(fields:[bookingId], references:[id])
+}
+
+model Review {
+  id        Int                  @id @default(autoincrement())
+  userId    Int
+  hallId    Int
+  rating    Int
+  comment   String?
+  createdAt DateTime             @default(now())
+  updatedAt temporal.updatedAt()
+
+  user      User                 @relation(fields:[userId], references:[id])
+  hall      Hall                 @relation(fields:[hallId], references:[id])
+
+  @@unique([userId, hallId])
+}
