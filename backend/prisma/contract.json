@@ -32,6 +32,25 @@
   "domain": {
     "namespaces": {
       "public": {
+        "enum": {
+          "UserRole": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "CUSTOMER",
+                "value": "CUSTOMER"
+              },
+              {
+                "name": "OWNER",
+                "value": "OWNER"
+              },
+              {
+                "name": "ADMIN",
+                "value": "ADMIN"
+              }
+            ]
+          }
+        },
         "models": {
           "Booking": {
             "fields": {
@@ -728,6 +747,19 @@
                   "kind": "scalar"
                 }
               },
+              "role": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "UserRole",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -796,6 +828,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "role": {
+                  "column": "role"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1327,6 +1362,13 @@
               ]
             },
             "user": {
+              "checks": [
+                {
+                  "expression": "\"role\" IN ('CUSTOMER', 'OWNER', 'ADMIN')",
+                  "name": "user_role_check_ca80046b",
+                  "prefix": "user_role_check"
+                }
+              ],
               "columns": {
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -1356,6 +1398,21 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "role": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CUSTOMER"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "UserRole",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "nativeType": "timestamptz",
@@ -1377,13 +1434,23 @@
                 }
               ]
             }
+          },
+          "valueSet": {
+            "UserRole": {
+              "kind": "valueSet",
+              "values": [
+                "CUSTOMER",
+                "OWNER",
+                "ADMIN"
+              ]
+            }
           }
         },
         "id": "public",
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "170a6a508784f396ed776e2d53c4712fcbec0751d37d24f9455ce84e37c09f88"
+    "storageHash": "33ca04259aab18569b61f57ca73121513bf8a9990b0b3ea33f4c6546dbe0b3e1"
   },
   "execution": {
     "executionHash": "c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65",
