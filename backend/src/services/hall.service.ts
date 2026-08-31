@@ -13,7 +13,7 @@ export async function createHall(
   capacity: number,
   price: string,
   imageUrl: string | null,
-  amenities: string | null
+  amenities: string | null,
 ) {
   const hall = await db.orm.public.Hall.create({
     ownerId,
@@ -57,9 +57,7 @@ export async function getHallById(id: number) {
 export async function getHallsByOwnerId(ownerId: number) {
   const halls = await db.orm.public.Hall.all();
 
-  const ownerHalls = halls.filter(
-    (hall) => hall.ownerId === ownerId
-  );
+  const ownerHalls = halls.filter((hall) => hall.ownerId === ownerId);
 
   return ownerHalls;
 }
@@ -77,20 +75,18 @@ export async function updateHall(
   capacity: number,
   price: string,
   imageUrl: string | null,
-  amenities: string | null
+  amenities: string | null,
 ) {
-  const updatedHall = await db.orm.public.Hall
-    .where({ id })
-    .update({
-      name,
-      description,
-      address,
-      city,
-      capacity,
-      price,
-      imageUrl,
-      amenities,
-    });
+  const updatedHall = await db.orm.public.Hall.where({ id }).update({
+    name,
+    description,
+    address,
+    city,
+    capacity,
+    price,
+    imageUrl,
+    amenities,
+  });
 
   return updatedHall;
 }
@@ -99,9 +95,28 @@ export async function updateHall(
 // ====================
 
 export async function deleteHall(id: number) {
-  const deletedHall = await db.orm.public.Hall
-    .where({ id })
-    .delete();
+  const deletedHall = await db.orm.public.Hall.where({ id }).delete();
 
   return deletedHall;
+}
+// ====================
+// Check Hall Ownership
+// ====================
+
+export async function isHallOwnedByUser(hallId: number, userId: number) {
+  const hall = await getHallById(hallId);
+
+  if (!hall) {
+    return false;
+  }
+
+  const hallOwners = await db.orm.public.HallOwner.all();
+
+  const hallOwner = hallOwners.find((owner) => owner.id === hall.ownerId);
+
+  if (!hallOwner) {
+    return false;
+  }
+
+  return hallOwner.userId === userId;
 }

@@ -4,8 +4,8 @@ import {
   getAllUsers,
   getUserById as findUserById,
   createNewUser,
+  hashPassword,
 } from "../services/user.service";
-
 
 // ====================
 // Get All Users
@@ -26,7 +26,6 @@ export async function getUsers(req: Request, res: Response) {
     });
   }
 }
-
 
 // ====================
 // Get User By ID
@@ -62,26 +61,36 @@ export async function getUserById(req: Request, res: Response) {
   }
 }
 
-
 // ====================
 // Create User
 // ====================
 
 export async function createUser(req: Request, res: Response) {
   try {
-    const { name, email, role } = req.body;
+    const { name, email, password, role } = req.body;
 
-    if (!name || !email) {
+    if (!name || !email || !password) {
       return res.status(400).json({
-        message: "Name and email are required",
+        message: "Name, email and password are required",
       });
     }
 
-    const user = await createNewUser(name, email, role);
+    const passwordHash = await hashPassword(password);
+
+    const user = await createNewUser(name, email, passwordHash, role);
 
     console.log("User created successfully!");
 
-    return res.status(201).json(user);
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return res.status(201).json(safeUser);
   } catch (error: any) {
     console.error("Failed to create user:", error);
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   createHallController,
   getHallsController,
@@ -6,6 +7,10 @@ import {
   updateHallController,
   deleteHallController,
 } from "../controllers/hall.controller";
+
+import { authenticateToken } from "../middleware/auth.middleware";
+import { authorizeRoles } from "../middleware/role.middleware";
+
 const router = Router();
 
 // ====================
@@ -21,6 +26,7 @@ router.post("/", createHallController);
 // ====================
 
 router.get("/", getHallsController);
+
 // ====================
 // Get Hall By ID
 // GET /halls/:id
@@ -28,12 +34,32 @@ router.get("/", getHallsController);
 
 router.get("/:id", getHallByIdController);
 
-//PUT Hall By ID
-//Hall update details
+// ====================
+// Update Hall
+// PUT /halls/:id
+// OWNER → own halls only
+// ADMIN → any hall
+// ====================
 
-router.put("/:id", updateHallController);
+router.put(
+  "/:id",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  updateHallController,
+);
 
-//DELETE Hall By HAll ID
-router.delete("/:id", deleteHallController);
+// ====================
+// Delete Hall
+// DELETE /halls/:id
+// OWNER → own halls only
+// ADMIN → any hall
+// ====================
+
+router.delete(
+  "/:id",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  deleteHallController,
+);
 
 export default router;

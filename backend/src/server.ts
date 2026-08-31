@@ -6,11 +6,11 @@ import { db } from "./db";
 import userRouter from "./routes/user.routes";
 import hallOwnerRoutes from "./routes/hallOwner.routes";
 import hallRoutes from "./routes/hall.routes";
+import authRoutes from "./routes/auth.routes";
 
 dotenv.config();
 
 const app = express();
-
 
 // ====================
 // Middleware
@@ -21,6 +21,7 @@ app.use(express.json());
 app.use("/users", userRouter);
 app.use("/hall-owners", hallOwnerRoutes);
 app.use("/halls", hallRoutes);
+app.use("/auth", authRoutes);
 // ====================
 // Root API
 // GET /
@@ -32,7 +33,6 @@ app.get("/", (req, res) => {
   });
 });
 
-
 // ====================
 // Health Check
 // GET /health
@@ -43,7 +43,6 @@ app.get("/health", (req, res) => {
     status: "OK",
   });
 });
-
 
 // ====================
 // Get All Users
@@ -65,7 +64,6 @@ app.get("/users", async (req, res) => {
     });
   }
 });
-
 
 // ====================
 // Get User By ID
@@ -108,7 +106,6 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-
 // ====================
 // Create User
 // POST /users
@@ -134,20 +131,19 @@ app.post("/users", async (req, res) => {
 
     return res.status(201).json(user);
   } catch (error: any) {
-  console.error("Failed to create user:", error);
+    console.error("Failed to create user:", error);
 
-  if (error?.sqlState === "23505") {
-    return res.status(409).json({
-      message: "Email already exists",
+    if (error?.sqlState === "23505") {
+      return res.status(409).json({
+        message: "Email already exists",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Failed to create user",
     });
   }
-
-  return res.status(500).json({
-    message: "Failed to create user",
-  });
-}
 });
-
 
 // ====================
 // Start Server

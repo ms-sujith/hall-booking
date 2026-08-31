@@ -1,11 +1,14 @@
 import type { Request, Response } from "express";
+
 import {
   createHall,
   getHalls,
   getHallById,
   updateHall,
   deleteHall,
+  isHallOwnedByUser,
 } from "../services/hall.service";
+
 // ====================
 // Create Hall
 // POST /halls
@@ -25,7 +28,6 @@ export async function createHallController(req: Request, res: Response) {
       amenities,
     } = req.body;
 
-    // Validate required fields
     if (
       !ownerId ||
       !name ||
@@ -63,6 +65,7 @@ export async function createHallController(req: Request, res: Response) {
     });
   }
 }
+
 // ====================
 // Get All Halls
 // GET /halls
@@ -83,6 +86,7 @@ export async function getHallsController(req: Request, res: Response) {
     });
   }
 }
+
 // ====================
 // Get Hall By ID
 // GET /halls/:id
@@ -133,6 +137,38 @@ export async function updateHallController(req: Request, res: Response) {
       });
     }
 
+    const user = (req as any).user;
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    const hall = await getHallById(id);
+
+    if (!hall) {
+      return res.status(404).json({
+        message: "Hall not found",
+      });
+    }
+
+    if (user.role === "CUSTOMER") {
+      return res.status(403).json({
+        message: "Only owners and admins can update halls",
+      });
+    }
+
+    if (user.role === "OWNER") {
+      const isOwner = await isHallOwnedByUser(id, user.userId);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          message: "You can only update your own halls",
+        });
+      }
+    }
+
     const {
       name,
       description,
@@ -162,12 +198,6 @@ export async function updateHallController(req: Request, res: Response) {
       amenities ?? null,
     );
 
-    if (!updatedHall) {
-      return res.status(404).json({
-        message: "Hall not found",
-      });
-    }
-
     console.log(`Hall ${id} updated successfully!`);
 
     return res.json(updatedHall);
@@ -179,6 +209,7 @@ export async function updateHallController(req: Request, res: Response) {
     });
   }
 }
+
 // ====================
 // Delete Hall
 // DELETE /halls/:id
@@ -194,15 +225,39 @@ export async function deleteHallController(req: Request, res: Response) {
       });
     }
 
-    const deletedHall = await deleteHall(id);
+    const user = (req as any).user;
 
-    if (!deletedHall) {
+    if (!user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    const hall = await getHallById(id);
+
+    if (!hall) {
       return res.status(404).json({
         message: "Hall not found",
       });
     }
 
-    console.log(`Hall ${id} deleted successfully!`);
+    if (user.role === "CUSTOMER") {
+      return res.status(403).json({
+        message: "Only owners and admins can delete halls",
+      });
+    }
+
+    if (user.role === "OWNER") {
+      const isOwner = await isHallOwnedByUser(id, user.userId);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          message: "You can only delete your own halls",
+        });
+      }
+    }
+
+    const deletedHall = await deleteHall(id);
 
     return res.json({
       message: "Hall deleted successfully",
