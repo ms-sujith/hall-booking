@@ -1,8 +1,13 @@
 import type { Request, Response } from "express";
+import { db } from "../db";
+
 import {
   createHallOwner,
   getHallOwnerByUserId,
 } from "../services/hallOwner.service";
+
+import { getHallsByOwnerId } from "../services/hall.service";
+
 // ====================
 // Create HallOwner Profile
 // ====================
@@ -78,6 +83,53 @@ export async function getHallOwnerProfile(
 
     return res.status(500).json({
       message: "Failed to fetch HallOwner profile",
+    });
+  }
+}
+// ====================
+// Get All Halls By Owner ID
+// GET /hall-owners/:userId/halls
+// ====================
+
+export async function getHallsByOwnerController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const userId = Number(req.params.userId);
+
+    if (Number.isNaN(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+    // Get the HallOwner profile using the User ID
+    const hallOwners = await db.orm.public.HallOwner.all();
+
+    const hallOwner = hallOwners.find(
+      (hallOwner) => hallOwner.userId === userId
+    );
+
+    if (!hallOwner) {
+      return res.status(404).json({
+        message: "HallOwner profile not found",
+      });
+    }
+
+    // Get halls belonging to this HallOwner
+    const halls = await getHallsByOwnerId(hallOwner.id);
+
+    console.log(
+      `Halls for user ${userId} fetched successfully!`
+    );
+
+    return res.json(halls);
+  } catch (error) {
+    console.error("Failed to fetch owner's halls:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch owner's halls",
     });
   }
 }

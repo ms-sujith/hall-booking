@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { db } from "./db";
 import userRouter from "./routes/user.routes";
 import hallOwnerRoutes from "./routes/hallOwner.routes";
+import hallRoutes from "./routes/hall.routes";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/users", userRouter);
 app.use("/hall-owners", hallOwnerRoutes);
+app.use("/halls", hallRoutes);
 // ====================
 // Root API
 // GET /
