@@ -63,3 +63,34 @@ export async function getHallsByOwnerId(ownerId: number) {
 
   return ownerHalls;
 }
+
+// ====================
+// Update Hall
+// ====================
+
+export async function updateHall(
+  id: number,
+  name: string,
+  description: string | null,
+  address: string,
+  city: string,
+  capacity: number,
+  price: string,
+  imageUrl: string | null,
+  amenities: string | null
+) {
+  const updatedHall = await db.orm.public.Hall
+    .where({ id })
+    .update({
+      name,
+      description,
+      address,
+      city,
+      capacity,
+      price,
+      imageUrl,
+      amenities,
+    });
+
+  return updatedHall;
+}

@@ -3,6 +3,7 @@ import {
   createHall,
   getHalls,
   getHallById,
+  updateHall,
 } from "../services/hall.service";
 // ====================
 // Create Hall
@@ -125,3 +126,74 @@ export async function getHallByIdController(
   }
 }
 
+// ====================
+// Update Hall
+// PUT /halls/:id
+// ====================
+
+export async function updateHallController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const id = Number(req.params.id);
+
+    if (Number.isNaN(id)) {
+      return res.status(400).json({
+        message: "Invalid hall ID",
+      });
+    }
+
+    const {
+      name,
+      description,
+      address,
+      city,
+      capacity,
+      price,
+      imageUrl,
+      amenities,
+    } = req.body;
+
+    if (
+      !name ||
+      !address ||
+      !city ||
+      !capacity ||
+      price === undefined
+    ) {
+      return res.status(400).json({
+        message:
+          "name, address, city, capacity and price are required",
+      });
+    }
+
+    const updatedHall = await updateHall(
+      id,
+      name,
+      description ?? null,
+      address,
+      city,
+      Number(capacity),
+      String(price),
+      imageUrl ?? null,
+      amenities ?? null
+    );
+
+    if (!updatedHall) {
+      return res.status(404).json({
+        message: "Hall not found",
+      });
+    }
+
+    console.log(`Hall ${id} updated successfully!`);
+
+    return res.json(updatedHall);
+  } catch (error) {
+    console.error("Failed to update hall:", error);
+
+    return res.status(500).json({
+      message: "Failed to update hall",
+    });
+  }
+}
