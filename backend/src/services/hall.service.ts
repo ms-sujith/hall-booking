@@ -94,3 +94,14 @@ export async function updateHall(
 
   return updatedHall;
 }
+// ====================
+// Delete Hall
+// ====================
+
+export async function deleteHall(id: number) {
+  const deletedHall = await db.orm.public.Hall
+    .where({ id })
+    .delete();
+
+  return deletedHall;
+}

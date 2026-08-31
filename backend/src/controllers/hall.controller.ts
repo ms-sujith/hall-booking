@@ -4,16 +4,14 @@ import {
   getHalls,
   getHallById,
   updateHall,
+  deleteHall,
 } from "../services/hall.service";
 // ====================
 // Create Hall
 // POST /halls
 // ====================
 
-export async function createHallController(
-  req: Request,
-  res: Response
-) {
+export async function createHallController(req: Request, res: Response) {
   try {
     const {
       ownerId,
@@ -51,7 +49,7 @@ export async function createHallController(
       Number(capacity),
       String(price),
       imageUrl ?? null,
-      amenities ?? null
+      amenities ?? null,
     );
 
     console.log("Hall created successfully!");
@@ -70,10 +68,7 @@ export async function createHallController(
 // GET /halls
 // ====================
 
-export async function getHallsController(
-  req: Request,
-  res: Response
-) {
+export async function getHallsController(req: Request, res: Response) {
   try {
     const halls = await getHalls();
 
@@ -93,10 +88,7 @@ export async function getHallsController(
 // GET /halls/:id
 // ====================
 
-export async function getHallByIdController(
-  req: Request,
-  res: Response
-) {
+export async function getHallByIdController(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
@@ -131,10 +123,7 @@ export async function getHallByIdController(
 // PUT /halls/:id
 // ====================
 
-export async function updateHallController(
-  req: Request,
-  res: Response
-) {
+export async function updateHallController(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
@@ -155,16 +144,9 @@ export async function updateHallController(
       amenities,
     } = req.body;
 
-    if (
-      !name ||
-      !address ||
-      !city ||
-      !capacity ||
-      price === undefined
-    ) {
+    if (!name || !address || !city || !capacity || price === undefined) {
       return res.status(400).json({
-        message:
-          "name, address, city, capacity and price are required",
+        message: "name, address, city, capacity and price are required",
       });
     }
 
@@ -177,7 +159,7 @@ export async function updateHallController(
       Number(capacity),
       String(price),
       imageUrl ?? null,
-      amenities ?? null
+      amenities ?? null,
     );
 
     if (!updatedHall) {
@@ -194,6 +176,43 @@ export async function updateHallController(
 
     return res.status(500).json({
       message: "Failed to update hall",
+    });
+  }
+}
+// ====================
+// Delete Hall
+// DELETE /halls/:id
+// ====================
+
+export async function deleteHallController(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+
+    if (Number.isNaN(id)) {
+      return res.status(400).json({
+        message: "Invalid hall ID",
+      });
+    }
+
+    const deletedHall = await deleteHall(id);
+
+    if (!deletedHall) {
+      return res.status(404).json({
+        message: "Hall not found",
+      });
+    }
+
+    console.log(`Hall ${id} deleted successfully!`);
+
+    return res.json({
+      message: "Hall deleted successfully",
+      hall: deletedHall,
+    });
+  } catch (error) {
+    console.error("Failed to delete hall:", error);
+
+    return res.status(500).json({
+      message: "Failed to delete hall",
     });
   }
 }

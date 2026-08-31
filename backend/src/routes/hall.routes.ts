@@ -3,7 +3,8 @@ import {
   createHallController,
   getHallsController,
   getHallByIdController,
- updateHallController,
+  updateHallController,
+  deleteHallController,
 } from "../controllers/hall.controller";
 const router = Router();
 
@@ -31,5 +32,8 @@ router.get("/:id", getHallByIdController);
 //Hall update details
 
 router.put("/:id", updateHallController);
+
+//DELETE Hall By HAll ID
+router.delete("/:id", deleteHallController);
 
 export default router;
