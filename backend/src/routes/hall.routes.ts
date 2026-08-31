@@ -16,9 +16,16 @@ const router = Router();
 // ====================
 // Create Hall
 // POST /halls
+// OWNER → own account
+// ADMIN → any owner
 // ====================
 
-router.post("/", createHallController);
+router.post(
+  "/",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  createHallController,
+);
 
 // ====================
 // Get All Halls

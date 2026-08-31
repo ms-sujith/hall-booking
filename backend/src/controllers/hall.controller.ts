@@ -9,13 +9,25 @@ import {
   isHallOwnedByUser,
 } from "../services/hall.service";
 
+import { getHallOwnerByUserId } from "../services/hallOwner.service";
+
 // ====================
 // Create Hall
 // POST /halls
+// OWNER → creates for themselves
+// ADMIN → can choose owner
 // ====================
 
 export async function createHallController(req: Request, res: Response) {
   try {
+    const user = (req as any).user;
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
     const {
       ownerId,
       name,
@@ -28,22 +40,59 @@ export async function createHallController(req: Request, res: Response) {
       amenities,
     } = req.body;
 
-    if (
-      !ownerId ||
-      !name ||
-      !address ||
-      !city ||
-      !capacity ||
-      price === undefined
-    ) {
+    // ====================
+    // Determine Hall Owner
+    // ====================
+
+    let finalOwnerId: number;
+
+    if (user.role === "OWNER") {
+      // OWNER cannot choose another owner.
+      // We use the authenticated user's ID from the JWT.
+
+      const hallOwner = await getHallOwnerByUserId(user.userId);
+
+      if (!hallOwner) {
+        return res.status(404).json({
+          message: "HallOwner profile not found",
+        });
+      }
+
+      finalOwnerId = hallOwner.id;
+    } else if (user.role === "ADMIN") {
+      // ADMIN can create a hall for any HallOwner.
+
+      if (!ownerId) {
+        return res.status(400).json({
+          message: "ownerId is required for admin",
+        });
+      }
+
+      finalOwnerId = Number(ownerId);
+
+      if (Number.isNaN(finalOwnerId)) {
+        return res.status(400).json({
+          message: "Invalid ownerId",
+        });
+      }
+    } else {
+      return res.status(403).json({
+        message: "Only owners and admins can create halls",
+      });
+    }
+
+    // ====================
+    // Validate Hall Fields
+    // ====================
+
+    if (!name || !address || !city || !capacity || price === undefined) {
       return res.status(400).json({
-        message:
-          "ownerId, name, address, city, capacity and price are required",
+        message: "name, address, city, capacity and price are required",
       });
     }
 
     const hall = await createHall(
-      Number(ownerId),
+      finalOwnerId,
       name,
       description ?? null,
       address,
@@ -125,6 +174,8 @@ export async function getHallByIdController(req: Request, res: Response) {
 // ====================
 // Update Hall
 // PUT /halls/:id
+// OWNER → own halls only
+// ADMIN → any hall
 // ====================
 
 export async function updateHallController(req: Request, res: Response) {
@@ -213,6 +264,8 @@ export async function updateHallController(req: Request, res: Response) {
 // ====================
 // Delete Hall
 // DELETE /halls/:id
+// OWNER → own halls only
+// ADMIN → any hall
 // ====================
 
 export async function deleteHallController(req: Request, res: Response) {
