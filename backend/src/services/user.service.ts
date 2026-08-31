@@ -1,6 +1,7 @@
 import { db } from "../db";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+
 // ====================
 // Get All Users
 // ====================
@@ -8,7 +9,14 @@ import jwt from "jsonwebtoken";
 export async function getAllUsers() {
   const users = await db.orm.public.User.all();
 
-  return users;
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }));
 }
 
 // ====================
@@ -20,7 +28,18 @@ export async function getUserById(id: number) {
 
   const user = users.find((user) => user.id === id);
 
-  return user;
+  if (!user) {
+    return undefined;
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }
 
 // ====================
@@ -42,6 +61,7 @@ export async function createNewUser(
 
   return user;
 }
+
 // ====================
 // Hash Password
 // ====================
@@ -71,6 +91,7 @@ export async function comparePassword(password: string, passwordHash: string) {
 
   return isMatch;
 }
+
 // ====================
 // Generate JWT Token
 // ====================
