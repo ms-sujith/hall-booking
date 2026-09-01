@@ -8,7 +8,7 @@ import hallOwnerRoutes from "./routes/hallOwner.routes";
 import hallRoutes from "./routes/hall.routes";
 import authRoutes from "./routes/auth.routes";
 import bookingRoutes from "./routes/booking.routes";
-
+import paymentRoutes from "./routes/payment.routes";
 dotenv.config();
 
 const app = express();
@@ -24,6 +24,7 @@ app.use("/hall-owners", hallOwnerRoutes);
 app.use("/halls", hallRoutes);
 app.use("/auth", authRoutes);
 app.use("/bookings", bookingRoutes);
+app.use("/payments", paymentRoutes);
 // ====================
 // Root API
 // GET /
