@@ -7,6 +7,7 @@ import userRouter from "./routes/user.routes";
 import hallOwnerRoutes from "./routes/hallOwner.routes";
 import hallRoutes from "./routes/hall.routes";
 import authRoutes from "./routes/auth.routes";
+import bookingRoutes from "./routes/booking.routes";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use("/users", userRouter);
 app.use("/hall-owners", hallOwnerRoutes);
 app.use("/halls", hallRoutes);
 app.use("/auth", authRoutes);
+app.use("/bookings", bookingRoutes);
 // ====================
 // Root API
 // GET /
