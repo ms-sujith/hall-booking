@@ -5,13 +5,20 @@ import {
   getHallsByOwnerController,
 } from "../controllers/hallOwner.controller";
 const router = Router();
+import { authenticateToken } from "../middleware/auth.middleware";
+import { authorizeRoles } from "../middleware/role.middleware";
 
 // ====================
 // Create HallOwner Profile
 // POST /hall-owners
 // ====================
 
-router.post("/", createHallOwnerProfile);
+router.post(
+  "/",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  createHallOwnerProfile,
+);
 // ====================
 // Get HallOwner By User ID
 // GET /hall-owners/:userId

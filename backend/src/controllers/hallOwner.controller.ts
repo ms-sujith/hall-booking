@@ -12,23 +12,50 @@ import { getHallsByOwnerId } from "../services/hall.service";
 // Create HallOwner Profile
 // ====================
 
-export async function createHallOwnerProfile(
-  req: Request,
-  res: Response
-) {
+export async function createHallOwnerProfile(req: Request, res: Response) {
   try {
-    const { userId, phone } = req.body;
+    const authenticatedUser = (req as any).user;
 
-    if (!userId) {
-      return res.status(400).json({
-        message: "userId is required",
+    if (!authenticatedUser) {
+      return res.status(401).json({
+        message: "Authentication required",
       });
     }
 
-    const hallOwner = await createHallOwner(
-      Number(userId),
-      phone
-    );
+    const { userId, phone } = req.body;
+
+    let targetUserId: number;
+
+    // OWNER can create a profile only for themselves
+    if (authenticatedUser.role === "OWNER") {
+      targetUserId = authenticatedUser.userId;
+    }
+
+    // ADMIN can create a profile for a specified user
+    else if (authenticatedUser.role === "ADMIN") {
+      if (!userId) {
+        return res.status(400).json({
+          message: "userId is required for ADMIN",
+        });
+      }
+
+      targetUserId = Number(userId);
+
+      if (Number.isNaN(targetUserId)) {
+        return res.status(400).json({
+          message: "Invalid user ID",
+        });
+      }
+    }
+
+    // CUSTOMER cannot create HallOwner profile
+    else {
+      return res.status(403).json({
+        message: "Access denied",
+      });
+    }
+
+    const hallOwner = await createHallOwner(targetUserId, phone);
 
     console.log("HallOwner profile created successfully!");
 
@@ -47,15 +74,11 @@ export async function createHallOwnerProfile(
     });
   }
 }
-
 // ====================
 // Get HallOwner By User ID
 // ====================
 
-export async function getHallOwnerProfile(
-  req: Request,
-  res: Response
-) {
+export async function getHallOwnerProfile(req: Request, res: Response) {
   try {
     const userId = Number(req.params.userId);
 
@@ -73,9 +96,7 @@ export async function getHallOwnerProfile(
       });
     }
 
-    console.log(
-      `HallOwner profile for user ${userId} fetched successfully!`
-    );
+    console.log(`HallOwner profile for user ${userId} fetched successfully!`);
 
     return res.json(hallOwner);
   } catch (error) {
@@ -91,10 +112,7 @@ export async function getHallOwnerProfile(
 // GET /hall-owners/:userId/halls
 // ====================
 
-export async function getHallsByOwnerController(
-  req: Request,
-  res: Response
-) {
+export async function getHallsByOwnerController(req: Request, res: Response) {
   try {
     const userId = Number(req.params.userId);
 
@@ -108,7 +126,7 @@ export async function getHallsByOwnerController(
     const hallOwners = await db.orm.public.HallOwner.all();
 
     const hallOwner = hallOwners.find(
-      (hallOwner) => hallOwner.userId === userId
+      (hallOwner) => hallOwner.userId === userId,
     );
 
     if (!hallOwner) {
@@ -120,9 +138,7 @@ export async function getHallsByOwnerController(
     // Get halls belonging to this HallOwner
     const halls = await getHallsByOwnerId(hallOwner.id);
 
-    console.log(
-      `Halls for user ${userId} fetched successfully!`
-    );
+    console.log(`Halls for user ${userId} fetched successfully!`);
 
     return res.json(halls);
   } catch (error) {

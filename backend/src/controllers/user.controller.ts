@@ -41,6 +41,20 @@ export async function getUserById(req: Request, res: Response) {
       });
     }
 
+    const authenticatedUser = (req as any).user;
+
+    if (!authenticatedUser) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    if (authenticatedUser.role !== "ADMIN" && authenticatedUser.userId !== id) {
+      return res.status(403).json({
+        message: "Access denied",
+      });
+    }
+
     const user = await findUserById(id);
 
     if (!user) {
@@ -67,7 +81,7 @@ export async function getUserById(req: Request, res: Response) {
 
 export async function createUser(req: Request, res: Response) {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -77,7 +91,7 @@ export async function createUser(req: Request, res: Response) {
 
     const passwordHash = await hashPassword(password);
 
-    const user = await createNewUser(name, email, passwordHash, role);
+    const user = await createNewUser(name, email, passwordHash);
 
     console.log("User created successfully!");
 
