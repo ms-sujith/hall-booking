@@ -12,6 +12,13 @@ import {
 
 import { db } from "../db";
 
+import {
+  createReviewSchema,
+  reviewIdParamSchema,
+  reviewHallIdParamSchema,
+  updateReviewSchema,
+} from "../validators/review.validator";
+
 // ====================
 // Create Review
 // POST /reviews
@@ -28,39 +35,25 @@ export async function createReviewController(req: Request, res: Response) {
       });
     }
 
-    const { hallId, rating, comment } = req.body;
+    const result = createReviewSchema.safeParse(req.body);
 
-    if (!hallId || rating === undefined) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "hallId and rating are required",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
 
-    const numericHallId = Number(hallId);
-    const numericRating = Number(rating);
+    const { hallId, rating, comment } = result.data;
     const userId = Number(user.userId);
 
-    if (Number.isNaN(numericHallId)) {
-      return res.status(400).json({
-        message: "Invalid hall ID",
-      });
-    }
-
-    if (
-      Number.isNaN(numericRating) ||
-      numericRating < 1 ||
-      numericRating > 5 ||
-      !Number.isInteger(numericRating)
-    ) {
-      return res.status(400).json({
-        message: "Rating must be an integer between 1 and 5",
-      });
-    }
-
     // Check hall exists
-    const halls = await db.orm.public.Hall.all();
-
-    const hall = halls.find((hall) => hall.id === numericHallId);
+    const hall = await db.orm.public.Hall.where({
+      id: hallId,
+    }).first();
 
     if (!hall) {
       return res.status(404).json({
@@ -69,26 +62,23 @@ export async function createReviewController(req: Request, res: Response) {
     }
 
     // Check customer has a confirmed booking for this hall
-    const bookings = await db.orm.public.Booking.all();
+    const confirmedBooking = await db.orm.public.Booking.where({
+      userId,
+      hallId,
+      status: "CONFIRMED",
+    }).first();
 
-    const hasConfirmedBooking = bookings.some(
-      (booking) =>
-        booking.userId === userId &&
-        booking.hallId === numericHallId &&
-        booking.status === "CONFIRMED",
-    );
-
-    if (!hasConfirmedBooking) {
+    if (!confirmedBooking) {
       return res.status(403).json({
         message: "You can only review a hall after having a confirmed booking",
       });
     }
 
     // One review per customer per hall
-    const existingReview = await getReviewsByUserId(userId);
+    const existingReviews = await getReviewsByUserId(userId);
 
-    const alreadyReviewed = existingReview.some(
-      (review) => review.hallId === numericHallId,
+    const alreadyReviewed = existingReviews.some(
+      (review) => review.hallId === hallId,
     );
 
     if (alreadyReviewed) {
@@ -97,12 +87,7 @@ export async function createReviewController(req: Request, res: Response) {
       });
     }
 
-    const review = await createReview(
-      userId,
-      numericHallId,
-      numericRating,
-      comment ?? null,
-    );
+    const review = await createReview(userId, hallId, rating, comment ?? null);
 
     console.log("Review created successfully!");
 
@@ -122,7 +107,7 @@ export async function createReviewController(req: Request, res: Response) {
 // ADMIN only
 // ====================
 
-export async function getReviewsController(req: Request, res: Response) {
+export async function getReviewsController(_req: Request, res: Response) {
   try {
     const reviews = await getReviews();
 
@@ -172,13 +157,19 @@ export async function getMyReviewsController(req: Request, res: Response) {
 
 export async function getReviewByIdController(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const result = reviewIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid review ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const review = await getReviewById(id);
 
@@ -206,13 +197,19 @@ export async function getReviewByIdController(req: Request, res: Response) {
 
 export async function getReviewsByHallController(req: Request, res: Response) {
   try {
-    const hallId = Number(req.params.hallId);
+    const result = reviewHallIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(hallId)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid hall ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const hallId = result.data.hallId;
 
     const reviews = await getReviewsByHallId(hallId);
 
@@ -242,21 +239,32 @@ export async function updateReviewController(req: Request, res: Response) {
       });
     }
 
-    const id = Number(req.params.id);
+    const idResult = reviewIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!idResult.success) {
       return res.status(400).json({
-        message: "Invalid review ID",
+        message: "Validation failed",
+        errors: idResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
 
-    const { rating, comment } = req.body;
+    const bodyResult = updateReviewSchema.safeParse(req.body);
 
-    if (rating === undefined && comment === undefined) {
+    if (!bodyResult.success) {
       return res.status(400).json({
-        message: "Rating or comment is required",
+        message: "Validation failed",
+        errors: bodyResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = idResult.data.id;
+    const { rating, comment } = bodyResult.data;
 
     const review = await getReviewById(id);
 
@@ -272,28 +280,7 @@ export async function updateReviewController(req: Request, res: Response) {
       });
     }
 
-    let numericRating: number | undefined;
-
-    if (rating !== undefined) {
-      numericRating = Number(rating);
-
-      if (
-        Number.isNaN(numericRating) ||
-        numericRating < 1 ||
-        numericRating > 5 ||
-        !Number.isInteger(numericRating)
-      ) {
-        return res.status(400).json({
-          message: "Rating must be an integer between 1 and 5",
-        });
-      }
-    }
-
-    const updatedReview = await updateReview(
-      id,
-      numericRating,
-      comment !== undefined ? String(comment) : undefined,
-    );
+    const updatedReview = await updateReview(id, rating, comment ?? undefined);
 
     return res.json(updatedReview);
   } catch (error) {
@@ -321,13 +308,19 @@ export async function deleteReviewController(req: Request, res: Response) {
       });
     }
 
-    const id = Number(req.params.id);
+    const result = reviewIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid review ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const review = await getReviewById(id);
 
