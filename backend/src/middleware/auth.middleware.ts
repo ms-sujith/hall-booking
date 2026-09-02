@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
+import { env } from "../config/env";
+
 // ====================
 // Authentication Middleware
 // ====================
@@ -35,15 +37,7 @@ export function authenticateToken(
       });
     }
 
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      return res.status(500).json({
-        message: "JWT_SECRET is not configured",
-      });
-    }
-
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, env.JWT_SECRET);
 
     (req as any).user = decoded;
 

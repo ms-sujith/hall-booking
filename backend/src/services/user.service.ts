@@ -1,6 +1,7 @@
 import { db } from "../db";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env";
 
 // ====================
 // Get All Users
@@ -100,18 +101,12 @@ export function generateToken(
   userId: number,
   role: "CUSTOMER" | "OWNER" | "ADMIN",
 ) {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-
   const token = jwt.sign(
     {
       userId,
       role,
     },
-    secret,
+    env.JWT_SECRET,
     {
       expiresIn: "1d",
     },
