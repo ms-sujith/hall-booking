@@ -36,7 +36,7 @@ export async function createBookingController(req: Request, res: Response) {
     // Validate input
     // ====================
 
-    if (!hallId || !bookingDate || !startTime || !guests) {
+    if (!hallId || !bookingDate || !startTime || guests === undefined) {
       return res.status(400).json({
         message: "hallId, bookingDate, startTime and guests are required",
       });

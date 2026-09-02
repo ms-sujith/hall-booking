@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-
+import { db } from "../db";
 import {
   createHall,
   getHalls,
@@ -60,7 +60,7 @@ export async function createHallController(req: Request, res: Response) {
 
       finalOwnerId = hallOwner.id;
     } else if (user.role === "ADMIN") {
-      // ADMIN can create a hall for any HallOwner.
+      // ADMIN can create a hall for any existing HallOwner.
 
       if (!ownerId) {
         return res.status(400).json({
@@ -73,6 +73,19 @@ export async function createHallController(req: Request, res: Response) {
       if (Number.isNaN(finalOwnerId)) {
         return res.status(400).json({
           message: "Invalid ownerId",
+        });
+      }
+
+      // Verify that the specified ownerId belongs to an existing HallOwner
+      const hallOwners = await db.orm.public.HallOwner.all();
+
+      const hallOwnerExists = hallOwners.some(
+        (hallOwner) => hallOwner.id === finalOwnerId,
+      );
+
+      if (!hallOwnerExists) {
+        return res.status(404).json({
+          message: "HallOwner not found",
         });
       }
     } else {

@@ -31,7 +31,7 @@ export async function createHallOwnerProfile(req: Request, res: Response) {
       targetUserId = authenticatedUser.userId;
     }
 
-    // ADMIN can create a profile for a specified user
+    // ADMIN can create a profile for a specified OWNER
     else if (authenticatedUser.role === "ADMIN") {
       if (!userId) {
         return res.status(400).json({
@@ -44,6 +44,24 @@ export async function createHallOwnerProfile(req: Request, res: Response) {
       if (Number.isNaN(targetUserId)) {
         return res.status(400).json({
           message: "Invalid user ID",
+        });
+      }
+
+      // Check whether the target user exists
+      const targetUser = await db.orm.public.User.where({
+        id: targetUserId,
+      }).first();
+
+      if (!targetUser) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      // Only OWNER users can have a HallOwner profile
+      if (targetUser.role !== "OWNER") {
+        return res.status(400).json({
+          message: "Only OWNER users can have a HallOwner profile",
         });
       }
     }
@@ -74,6 +92,7 @@ export async function createHallOwnerProfile(req: Request, res: Response) {
     });
   }
 }
+
 // ====================
 // Get HallOwner By User ID
 // ====================
@@ -107,6 +126,7 @@ export async function getHallOwnerProfile(req: Request, res: Response) {
     });
   }
 }
+
 // ====================
 // Get All Halls By Owner ID
 // GET /hall-owners/:userId/halls
