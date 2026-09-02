@@ -6,6 +6,8 @@ import {
   generateToken,
 } from "../services/user.service";
 
+import { loginSchema } from "../validators/auth.validator";
+
 // ====================
 // Login
 // POST /auth/login
@@ -13,13 +15,19 @@ import {
 
 export async function login(req: Request, res: Response) {
   try {
-    const { email, password } = req.body;
+    const result = loginSchema.safeParse(req.body);
 
-    if (!email || !password) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const { email, password } = result.data;
 
     const user = await getUserByEmail(email);
 
@@ -42,7 +50,9 @@ export async function login(req: Request, res: Response) {
         message: "Invalid email or password",
       });
     }
+
     const token = generateToken(user.id, user.role);
+
     const safeUser = {
       id: user.id,
       name: user.name,
