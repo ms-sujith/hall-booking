@@ -14,6 +14,13 @@ import {
 
 import { db } from "../db";
 
+import {
+  createPaymentSchema,
+  paymentIdParamSchema,
+  paymentBookingIdParamSchema,
+  updatePaymentStatusSchema,
+} from "../validators/payment.validator";
+
 // ====================
 // Create Payment
 // POST /payments
@@ -30,19 +37,23 @@ export async function createPaymentController(req: Request, res: Response) {
       });
     }
 
-    const { bookingId, paymentMethod } = req.body;
+    const result = createPaymentSchema.safeParse(req.body);
 
-    if (!bookingId || !paymentMethod) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "bookingId and paymentMethod are required",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
 
-    const booking = await db.orm.public.Booking.all();
+    const { bookingId, paymentMethod } = result.data;
 
-    const selectedBooking = booking.find(
-      (booking) => booking.id === Number(bookingId),
-    );
+    const selectedBooking = await db.orm.public.Booking.where({
+      id: bookingId,
+    }).first();
 
     if (!selectedBooking) {
       return res.status(404).json({
@@ -65,7 +76,7 @@ export async function createPaymentController(req: Request, res: Response) {
     }
 
     // One payment per booking
-    const existingPayment = await getPaymentByBookingId(Number(bookingId));
+    const existingPayment = await getPaymentByBookingId(bookingId);
 
     if (existingPayment) {
       return res.status(409).json({
@@ -78,9 +89,9 @@ export async function createPaymentController(req: Request, res: Response) {
     const amount = selectedBooking.totalAmount.toString();
 
     const payment = await createPayment(
-      Number(bookingId),
+      bookingId,
       amount,
-      String(paymentMethod),
+      paymentMethod,
       null,
       "PENDING",
       null,
@@ -104,7 +115,7 @@ export async function createPaymentController(req: Request, res: Response) {
 // ADMIN only
 // ====================
 
-export async function getPaymentsController(req: Request, res: Response) {
+export async function getPaymentsController(_req: Request, res: Response) {
   try {
     const payments = await getPayments();
 
@@ -154,13 +165,19 @@ export async function getMyPaymentsController(req: Request, res: Response) {
 
 export async function getPaymentByIdController(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const result = paymentIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid payment ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const payment = await getPaymentById(id);
 
@@ -185,11 +202,9 @@ export async function getPaymentByIdController(req: Request, res: Response) {
 
     // CUSTOMER can view only their own payment
     if (user.role === "CUSTOMER") {
-      const bookings = await db.orm.public.Booking.all();
-
-      const booking = bookings.find(
-        (booking) => booking.id === payment.bookingId,
-      );
+      const booking = await db.orm.public.Booking.where({
+        id: payment.bookingId,
+      }).first();
 
       if (!booking) {
         return res.status(404).json({
@@ -229,13 +244,19 @@ export async function getPaymentByBookingController(
   res: Response,
 ) {
   try {
-    const bookingId = Number(req.params.bookingId);
+    const result = paymentBookingIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(bookingId)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid booking ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const bookingId = result.data.bookingId;
 
     const payment = await getPaymentByBookingId(bookingId);
 
@@ -257,9 +278,9 @@ export async function getPaymentByBookingController(
       return res.json(payment);
     }
 
-    const bookings = await db.orm.public.Booking.all();
-
-    const booking = bookings.find((booking) => booking.id === bookingId);
+    const booking = await db.orm.public.Booking.where({
+      id: bookingId,
+    }).first();
 
     if (!booking) {
       return res.status(404).json({
@@ -280,11 +301,9 @@ export async function getPaymentByBookingController(
 
     // OWNER → booking belonging to their hall
     if (user.role === "OWNER") {
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwner = hallOwners.find(
-        (hallOwner) => hallOwner.userId === Number(user.userId),
-      );
+      const hallOwner = await db.orm.public.HallOwner.where({
+        userId: Number(user.userId),
+      }).first();
 
       if (!hallOwner) {
         return res.status(403).json({
@@ -292,9 +311,9 @@ export async function getPaymentByBookingController(
         });
       }
 
-      const halls = await db.orm.public.Hall.all();
-
-      const hall = halls.find((hall) => hall.id === booking.hallId);
+      const hall = await db.orm.public.Hall.where({
+        id: booking.hallId,
+      }).first();
 
       if (!hall || hall.ownerId !== hallOwner.id) {
         return res.status(403).json({
@@ -328,23 +347,32 @@ export async function updatePaymentStatusController(
   res: Response,
 ) {
   try {
-    const id = Number(req.params.id);
+    const idResult = paymentIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!idResult.success) {
       return res.status(400).json({
-        message: "Invalid payment ID",
+        message: "Validation failed",
+        errors: idResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
 
-    const { status, transactionId } = req.body;
+    const statusResult = updatePaymentStatusSchema.safeParse(req.body);
 
-    const allowedStatuses = ["PAID", "FAILED", "REFUNDED"];
-
-    if (!status || !allowedStatuses.includes(String(status))) {
+    if (!statusResult.success) {
       return res.status(400).json({
-        message: "Invalid status. Allowed values: PAID, FAILED, REFUNDED",
+        message: "Validation failed",
+        errors: statusResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = idResult.data.id;
+    const { status, transactionId } = statusResult.data;
 
     const payment = await getPaymentById(id);
 
@@ -356,17 +384,17 @@ export async function updatePaymentStatusController(
 
     let paidAt: Temporal.Instant | null = null;
 
-    if (String(status) === "PAID") {
+    if (status === "PAID") {
       paidAt = Temporal.Now.instant();
     }
 
     const updatedPayment = await db.orm.public.Payment.where({
       id,
     }).update({
-      status: String(status),
+      status,
       transactionId:
         transactionId !== undefined
-          ? String(transactionId)
+          ? transactionId
           : payment.transactionId,
       paidAt,
     });
@@ -389,13 +417,19 @@ export async function updatePaymentStatusController(
 
 export async function deletePaymentController(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const result = paymentIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid payment ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const payment = await getPaymentById(id);
 
