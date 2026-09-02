@@ -14,6 +14,13 @@ import {
   deleteBooking,
 } from "../services/booking.service";
 
+import {
+  createBookingSchema,
+  bookingIdParamSchema,
+  hallIdParamSchema,
+  updateBookingStatusSchema,
+} from "../validators/booking.validator";
+
 // ====================
 // Create Booking
 // POST /bookings
@@ -30,32 +37,22 @@ export async function createBookingController(req: Request, res: Response) {
       });
     }
 
-    const { hallId, bookingDate, startTime, endTime, guests } = req.body;
+    const result = createBookingSchema.safeParse(req.body);
 
-    // ====================
-    // Validate input
-    // ====================
-
-    if (!hallId || !bookingDate || !startTime || guests === undefined) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "hallId, bookingDate, startTime and guests are required",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
 
-    const numericHallId = Number(hallId);
-    const numericGuests = Number(guests);
+    const { hallId, bookingDate, startTime, endTime, guests } = result.data;
 
-    if (Number.isNaN(numericHallId) || numericHallId <= 0) {
-      return res.status(400).json({
-        message: "Invalid hall ID",
-      });
-    }
-
-    if (Number.isNaN(numericGuests) || numericGuests <= 0) {
-      return res.status(400).json({
-        message: "Guests must be greater than 0",
-      });
-    }
+    const numericHallId = hallId;
+    const numericGuests = guests;
 
     // ====================
     // Parse booking date
@@ -64,7 +61,7 @@ export async function createBookingController(req: Request, res: Response) {
     let parsedBookingDate: Temporal.Instant;
 
     try {
-      parsedBookingDate = Temporal.Instant.from(String(bookingDate));
+      parsedBookingDate = Temporal.Instant.from(bookingDate);
     } catch {
       return res.status(400).json({
         message: "Invalid booking date",
@@ -75,9 +72,9 @@ export async function createBookingController(req: Request, res: Response) {
     // Get Hall
     // ====================
 
-    const halls = await db.orm.public.Hall.all();
-
-    const hall = halls.find((hall) => hall.id === numericHallId);
+    const hall = await db.orm.public.Hall.where({
+      id: numericHallId,
+    }).first();
 
     if (!hall) {
       return res.status(404).json({
@@ -100,9 +97,8 @@ export async function createBookingController(req: Request, res: Response) {
     // ====================
 
     if (endTime) {
-      const startMinutes = convertTimeToMinutes(String(startTime));
-
-      const endMinutes = convertTimeToMinutes(String(endTime));
+      const startMinutes = convertTimeToMinutes(startTime);
+      const endMinutes = convertTimeToMinutes(endTime);
 
       if (startMinutes === null || endMinutes === null) {
         return res.status(400).json({
@@ -126,9 +122,8 @@ export async function createBookingController(req: Request, res: Response) {
       parsedBookingDate,
     );
 
-    const requestedStart = convertTimeToMinutes(String(startTime));
-
-    const requestedEnd = endTime ? convertTimeToMinutes(String(endTime)) : null;
+    const requestedStart = convertTimeToMinutes(startTime);
+    const requestedEnd = endTime ? convertTimeToMinutes(endTime) : null;
 
     if (requestedStart === null) {
       return res.status(400).json({
@@ -190,7 +185,7 @@ export async function createBookingController(req: Request, res: Response) {
       Number(user.userId),
       numericHallId,
       parsedBookingDate,
-      String(startTime),
+      startTime,
       endTime ?? null,
       numericGuests,
       totalAmount,
@@ -268,13 +263,19 @@ export async function getBookingsController(req: Request, res: Response) {
 
 export async function getBookingByIdController(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const result = bookingIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid booking ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const user = (req as any).user;
 
@@ -319,11 +320,9 @@ export async function getBookingByIdController(req: Request, res: Response) {
     // ====================
 
     if (user.role === "OWNER") {
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwner = hallOwners.find(
-        (hallOwner) => hallOwner.userId === Number(user.userId),
-      );
+      const hallOwner = await db.orm.public.HallOwner.where({
+        userId: Number(user.userId),
+      }).first();
 
       if (!hallOwner) {
         return res.status(403).json({
@@ -331,9 +330,9 @@ export async function getBookingByIdController(req: Request, res: Response) {
         });
       }
 
-      const halls = await db.orm.public.Hall.all();
-
-      const hall = halls.find((hall) => hall.id === booking.hallId);
+      const hall = await db.orm.public.Hall.where({
+        id: booking.hallId,
+      }).first();
 
       if (!hall) {
         return res.status(404).json({
@@ -392,23 +391,24 @@ export async function getMyBookingsController(req: Request, res: Response) {
 // ====================
 // Get Bookings By Hall
 // GET /bookings/hall/:hallId
-// ====================
-
-// ====================
-// Get Bookings By Hall
-// GET /bookings/hall/:hallId
 // OWNER / ADMIN
 // ====================
 
 export async function getBookingsByHallController(req: Request, res: Response) {
   try {
-    const hallId = Number(req.params.hallId);
+    const result = hallIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(hallId)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid hall ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const hallId = result.data.hallId;
 
     const user = (req as any).user;
 
@@ -427,11 +427,9 @@ export async function getBookingsByHallController(req: Request, res: Response) {
 
     // OWNER can view bookings only for their own halls
     if (user.role === "OWNER") {
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwner = hallOwners.find(
-        (hallOwner) => hallOwner.userId === Number(user.userId),
-      );
+      const hallOwner = await db.orm.public.HallOwner.where({
+        userId: Number(user.userId),
+      }).first();
 
       if (!hallOwner) {
         return res.status(403).json({
@@ -439,9 +437,9 @@ export async function getBookingsByHallController(req: Request, res: Response) {
         });
       }
 
-      const halls = await db.orm.public.Hall.all();
-
-      const hall = halls.find((hall) => hall.id === hallId);
+      const hall = await db.orm.public.Hall.where({
+        id: hallId,
+      }).first();
 
       if (!hall) {
         return res.status(404).json({
@@ -484,13 +482,32 @@ export async function updateBookingStatusController(
   res: Response,
 ) {
   try {
-    const id = Number(req.params.id);
+    const idResult = bookingIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!idResult.success) {
       return res.status(400).json({
-        message: "Invalid booking ID",
+        message: "Validation failed",
+        errors: idResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const statusResult = updateBookingStatusSchema.safeParse(req.body);
+
+    if (!statusResult.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: statusResult.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const id = idResult.data.id;
+    const status = statusResult.data.status;
 
     const user = (req as any).user;
 
@@ -500,18 +517,6 @@ export async function updateBookingStatusController(
       });
     }
 
-    const { status } = req.body;
-
-    const allowedStatuses = ["CONFIRMED", "REJECTED", "CANCELLED"];
-
-    if (!status || !allowedStatuses.includes(String(status))) {
-      return res.status(400).json({
-        message:
-          "Invalid status. Allowed values: CONFIRMED, REJECTED, CANCELLED",
-      });
-    }
-
-    // Find booking
     const booking = await getBookingById(id);
 
     if (!booking) {
@@ -526,7 +531,7 @@ export async function updateBookingStatusController(
     // ====================
 
     if (user.role === "ADMIN") {
-      const updatedBooking = await updateBookingStatus(id, String(status));
+      const updatedBooking = await updateBookingStatus(id, status);
 
       return res.json(updatedBooking);
     }
@@ -538,11 +543,9 @@ export async function updateBookingStatusController(
     // ====================
 
     if (user.role === "OWNER") {
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwner = hallOwners.find(
-        (hallOwner) => hallOwner.userId === Number(user.userId),
-      );
+      const hallOwner = await db.orm.public.HallOwner.where({
+        userId: Number(user.userId),
+      }).first();
 
       if (!hallOwner) {
         return res.status(403).json({
@@ -550,9 +553,9 @@ export async function updateBookingStatusController(
         });
       }
 
-      const halls = await db.orm.public.Hall.all();
-
-      const hall = halls.find((hall) => hall.id === booking.hallId);
+      const hall = await db.orm.public.Hall.where({
+        id: booking.hallId,
+      }).first();
 
       if (!hall) {
         return res.status(404).json({
@@ -566,7 +569,7 @@ export async function updateBookingStatusController(
         });
       }
 
-      const updatedBooking = await updateBookingStatus(id, String(status));
+      const updatedBooking = await updateBookingStatus(id, status);
 
       return res.json(updatedBooking);
     }
@@ -582,6 +585,7 @@ export async function updateBookingStatusController(
     });
   }
 }
+
 // ====================
 // Delete Booking
 // DELETE /bookings/:id
@@ -592,13 +596,19 @@ export async function updateBookingStatusController(
 
 export async function deleteBookingController(req: Request, res: Response) {
   try {
-    const id = Number(req.params.id);
+    const result = bookingIdParamSchema.safeParse(req.params);
 
-    if (Number.isNaN(id)) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Invalid booking ID",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const id = result.data.id;
 
     const user = (req as any).user;
 
@@ -653,11 +663,9 @@ export async function deleteBookingController(req: Request, res: Response) {
     // ====================
 
     if (user.role === "OWNER") {
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwner = hallOwners.find(
-        (hallOwner) => hallOwner.userId === Number(user.userId),
-      );
+      const hallOwner = await db.orm.public.HallOwner.where({
+        userId: Number(user.userId),
+      }).first();
 
       if (!hallOwner) {
         return res.status(403).json({
@@ -665,9 +673,9 @@ export async function deleteBookingController(req: Request, res: Response) {
         });
       }
 
-      const halls = await db.orm.public.Hall.all();
-
-      const hall = halls.find((hall) => hall.id === booking.hallId);
+      const hall = await db.orm.public.Hall.where({
+        id: booking.hallId,
+      }).first();
 
       if (!hall) {
         return res.status(404).json({
