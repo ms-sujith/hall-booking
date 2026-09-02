@@ -24,7 +24,8 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "prisma": "^8.0.0-rc.12",
-    "temporal-polyfill": "^1.0.4"
+    "temporal-polyfill": "^1.0.4",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

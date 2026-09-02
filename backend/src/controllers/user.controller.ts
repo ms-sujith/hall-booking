@@ -6,12 +6,14 @@ import {
   createNewUser,
   hashPassword,
 } from "../services/user.service";
+import { createUserSchema } from "../validators/user.validator";
 
 // ====================
 // Get All Users
+// GET /users
 // ====================
 
-export async function getUsers(req: Request, res: Response) {
+export async function getUsers(_req: Request, res: Response) {
   try {
     const users = await getAllUsers();
 
@@ -29,13 +31,14 @@ export async function getUsers(req: Request, res: Response) {
 
 // ====================
 // Get User By ID
+// GET /users/:id
 // ====================
 
 export async function getUserById(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    if (Number.isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         message: "Invalid user ID",
       });
@@ -77,17 +80,24 @@ export async function getUserById(req: Request, res: Response) {
 
 // ====================
 // Create User
+// POST /users
 // ====================
 
 export async function createUser(req: Request, res: Response) {
   try {
-    const { name, email, password } = req.body;
+    const result = createUserSchema.safeParse(req.body);
 
-    if (!name || !email || !password) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Name, email and password are required",
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const { name, email, password } = result.data;
 
     const passwordHash = await hashPassword(password);
 
