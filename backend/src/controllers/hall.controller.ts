@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
+
 import { db } from "../db";
+
 import {
   createHall,
   getHalls,
@@ -10,6 +12,11 @@ import {
 } from "../services/hall.service";
 
 import { getHallOwnerByUserId } from "../services/hallOwner.service";
+
+import {
+  createHallSchema,
+  updateHallSchema,
+} from "../validators/hall.validator";
 
 // ====================
 // Create Hall
@@ -28,6 +35,18 @@ export async function createHallController(req: Request, res: Response) {
       });
     }
 
+    const result = createHallSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
     const {
       ownerId,
       name,
@@ -38,7 +57,7 @@ export async function createHallController(req: Request, res: Response) {
       price,
       imageUrl,
       amenities,
-    } = req.body;
+    } = result.data;
 
     // ====================
     // Determine Hall Owner
@@ -48,7 +67,7 @@ export async function createHallController(req: Request, res: Response) {
 
     if (user.role === "OWNER") {
       // OWNER cannot choose another owner.
-      // We use the authenticated user's ID from the JWT.
+      // Use the authenticated user's HallOwner profile.
 
       const hallOwner = await getHallOwnerByUserId(user.userId);
 
@@ -62,28 +81,20 @@ export async function createHallController(req: Request, res: Response) {
     } else if (user.role === "ADMIN") {
       // ADMIN can create a hall for any existing HallOwner.
 
-      if (!ownerId) {
+      if (ownerId === undefined) {
         return res.status(400).json({
           message: "ownerId is required for admin",
         });
       }
 
-      finalOwnerId = Number(ownerId);
+      finalOwnerId = ownerId;
 
-      if (Number.isNaN(finalOwnerId)) {
-        return res.status(400).json({
-          message: "Invalid ownerId",
-        });
-      }
+      // Verify that the specified ownerId belongs to an existing HallOwner.
+      const hallOwner = await db.orm.public.HallOwner.where({
+        id: finalOwnerId,
+      }).first();
 
-      // Verify that the specified ownerId belongs to an existing HallOwner
-      const hallOwners = await db.orm.public.HallOwner.all();
-
-      const hallOwnerExists = hallOwners.some(
-        (hallOwner) => hallOwner.id === finalOwnerId,
-      );
-
-      if (!hallOwnerExists) {
+      if (!hallOwner) {
         return res.status(404).json({
           message: "HallOwner not found",
         });
@@ -94,23 +105,13 @@ export async function createHallController(req: Request, res: Response) {
       });
     }
 
-    // ====================
-    // Validate Hall Fields
-    // ====================
-
-    if (!name || !address || !city || !capacity || price === undefined) {
-      return res.status(400).json({
-        message: "name, address, city, capacity and price are required",
-      });
-    }
-
     const hall = await createHall(
       finalOwnerId,
       name,
       description ?? null,
       address,
       city,
-      Number(capacity),
+      capacity,
       String(price),
       imageUrl ?? null,
       amenities ?? null,
@@ -133,7 +134,7 @@ export async function createHallController(req: Request, res: Response) {
 // GET /halls
 // ====================
 
-export async function getHallsController(req: Request, res: Response) {
+export async function getHallsController(_req: Request, res: Response) {
   try {
     const halls = await getHalls();
 
@@ -158,7 +159,7 @@ export async function getHallByIdController(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    if (Number.isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         message: "Invalid hall ID",
       });
@@ -195,7 +196,7 @@ export async function updateHallController(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    if (Number.isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         message: "Invalid hall ID",
       });
@@ -233,6 +234,18 @@ export async function updateHallController(req: Request, res: Response) {
       }
     }
 
+    const result = updateHallSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
     const {
       name,
       description,
@@ -242,13 +255,7 @@ export async function updateHallController(req: Request, res: Response) {
       price,
       imageUrl,
       amenities,
-    } = req.body;
-
-    if (!name || !address || !city || !capacity || price === undefined) {
-      return res.status(400).json({
-        message: "name, address, city, capacity and price are required",
-      });
-    }
+    } = result.data;
 
     const updatedHall = await updateHall(
       id,
@@ -256,7 +263,7 @@ export async function updateHallController(req: Request, res: Response) {
       description ?? null,
       address,
       city,
-      Number(capacity),
+      capacity,
       String(price),
       imageUrl ?? null,
       amenities ?? null,
@@ -285,7 +292,7 @@ export async function deleteHallController(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
 
-    if (Number.isNaN(id)) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         message: "Invalid hall ID",
       });
