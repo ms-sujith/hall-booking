@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Header from "@/components/Header";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://hall-booking-4ix8.onrender.com";
@@ -32,7 +33,6 @@ type Booking = {
 export default function OwnerBookingsPage() {
   const [halls, setHalls] = useState<Hall[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [ownerName, setOwnerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -62,8 +62,6 @@ export default function OwnerBookingsPage() {
         setLoading(false);
         return;
       }
-
-      setOwnerName(user.name || "Owner");
 
       // Get all halls belonging to this owner
       const hallsResponse = await fetch(
@@ -200,38 +198,7 @@ export default function OwnerBookingsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-900">
-      {/* Header */}
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <a href="/" className="block">
-            <h1 className="text-2xl font-bold">
-              Hall<span className="text-indigo-600">Book</span>
-            </h1>
-
-            <p className="text-sm text-zinc-500">Find. Book. Celebrate.</p>
-          </a>
-
-          <div className="flex items-center gap-5">
-            <span className="hidden text-sm text-zinc-600 sm:block">
-              Welcome, {ownerName}
-            </span>
-
-            <a
-              href="/halls"
-              className="text-sm font-medium text-zinc-700 hover:text-indigo-600"
-            >
-              Browse Halls
-            </a>
-
-            <a
-              href="/"
-              className="text-sm font-medium text-zinc-700 hover:text-indigo-600"
-            >
-              Home
-            </a>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main */}
       <section className="mx-auto max-w-7xl px-6 py-10">
