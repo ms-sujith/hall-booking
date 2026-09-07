@@ -537,6 +537,36 @@ export async function updateBookingStatusController(
     }
 
     // ====================
+    // CUSTOMER
+    // Customer can cancel only their own
+    // PENDING or CONFIRMED bookings
+    // ====================
+
+    if (user.role === "CUSTOMER") {
+      if (booking.userId !== Number(user.userId)) {
+        return res.status(403).json({
+          message: "You can only cancel your own bookings",
+        });
+      }
+
+      if (status !== "CANCELLED") {
+        return res.status(403).json({
+          message: "Customers can only cancel bookings",
+        });
+      }
+
+      if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") {
+        return res.status(400).json({
+          message: "Only pending or confirmed bookings can be cancelled",
+        });
+      }
+
+      const updatedBooking = await updateBookingStatus(id, status);
+
+      return res.json(updatedBooking);
+    }
+
+    // ====================
     // OWNER
     // Owner can update only bookings
     // belonging to their own halls
