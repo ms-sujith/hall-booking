@@ -85,7 +85,7 @@ router.get("/:id", authenticateToken, getBookingByIdController);
 router.patch(
   "/:id/status",
   authenticateToken,
-  authorizeRoles("OWNER", "ADMIN"),
+  authorizeRoles("CUSTOMER", "OWNER", "ADMIN"),
   updateBookingStatusController,
 );
 
