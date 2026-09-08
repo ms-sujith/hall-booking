@@ -5,6 +5,7 @@ import { db } from "../db";
 import {
   createHall,
   getHalls,
+  getAdminHalls,
   getHallById,
   updateHall,
   deleteHall,
@@ -107,6 +108,7 @@ export async function createHallController(req: Request, res: Response) {
 
     const hall = await createHall(
       finalOwnerId,
+      user.userId,
       name,
       description ?? null,
       address,
@@ -132,6 +134,7 @@ export async function createHallController(req: Request, res: Response) {
 // ====================
 // Get All Halls
 // GET /halls
+// Public
 // ====================
 
 export async function getHallsController(_req: Request, res: Response) {
@@ -146,6 +149,42 @@ export async function getHallsController(_req: Request, res: Response) {
 
     return res.status(500).json({
       message: "Failed to fetch halls",
+    });
+  }
+}
+
+// ====================
+// Get Admin Halls
+// GET /halls/admin
+// ADMIN only
+// ====================
+
+export async function getAdminHallsController(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    if (user.role !== "ADMIN") {
+      return res.status(403).json({
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    const halls = await getAdminHalls();
+
+    console.log("Admin halls fetched successfully!");
+
+    return res.json(halls);
+  } catch (error) {
+    console.error("Failed to fetch admin halls:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch admin halls",
     });
   }
 }

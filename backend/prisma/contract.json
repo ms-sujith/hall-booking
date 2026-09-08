@@ -256,6 +256,13 @@
                   "kind": "scalar"
                 }
               },
+              "createdByUserId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "description": {
                 "nullable": true,
                 "type": {
@@ -322,6 +329,21 @@
                   "namespace": "public"
                 }
               },
+              "createdBy": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "createdByUserId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              },
               "owner": {
                 "cardinality": "N:1",
                 "on": {
@@ -369,6 +391,9 @@
                 },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "createdByUserId": {
+                  "column": "createdByUserId"
                 },
                 "description": {
                   "column": "description"
@@ -791,6 +816,21 @@
                   "namespace": "public"
                 }
               },
+              "createdHalls": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "createdByUserId"
+                  ]
+                },
+                "to": {
+                  "model": "Hall",
+                  "namespace": "public"
+                }
+              },
               "hallOwner": {
                 "cardinality": "1:1",
                 "on": {
@@ -1019,6 +1059,11 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "createdByUserId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "description": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -1075,9 +1120,33 @@
                     "namespaceId": "public",
                     "tableName": "hallOwner"
                   }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "createdByUserId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "hall"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "createdByUserId"
+                  ],
+                  "name": "hall_createdByUserId_idx_93e8a540",
+                  "prefix": "hall_createdByUserId_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "ownerId"
@@ -1465,7 +1534,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "6a43fcb547b2a1e0d1b7416e36862184e9402a8cee367a3c322923c166d47da2"
+    "storageHash": "8891afd8aac5098639a41c9e221740e7bb4b2dc5f86163c73a63477ff6770c00"
   },
   "execution": {
     "executionHash": "c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65",

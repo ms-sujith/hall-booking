@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createHallController,
   getHallsController,
+  getAdminHallsController,
   getHallByIdController,
   updateHallController,
   deleteHallController,
@@ -30,9 +31,23 @@ router.post(
 // ====================
 // Get All Halls
 // GET /halls
+// Public
 // ====================
 
 router.get("/", getHallsController);
+
+// ====================
+// Get Admin Halls
+// GET /halls/admin
+// ADMIN only
+// ====================
+
+router.get(
+  "/admin",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  getAdminHallsController,
+);
 
 // ====================
 // Get Hall By ID

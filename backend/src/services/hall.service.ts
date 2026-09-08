@@ -6,6 +6,7 @@ import { db } from "../db";
 
 export async function createHall(
   ownerId: number,
+  createdByUserId: number,
   name: string,
   description: string | null,
   address: string,
@@ -17,6 +18,7 @@ export async function createHall(
 ) {
   const hall = await db.orm.public.Hall.create({
     ownerId,
+    createdByUserId,
     name,
     description,
     address,
@@ -29,6 +31,7 @@ export async function createHall(
 
   return hall;
 }
+
 // ====================
 // Get All Halls
 // ====================
@@ -37,6 +40,61 @@ export async function getHalls() {
   const halls = await db.orm.public.Hall.all();
 
   return halls;
+}
+
+// ====================
+// Get Admin Halls
+// Includes Owner + Creator Information
+// ====================
+
+export async function getAdminHalls() {
+  const halls = await db.orm.public.Hall.all();
+  const hallOwners = await db.orm.public.HallOwner.all();
+  const users = await db.orm.public.User.all();
+
+  const adminHalls = halls.map((hall) => {
+    // ====================
+    // Find Hall Owner
+    // ====================
+
+    const hallOwner = hallOwners.find((owner) => owner.id === hall.ownerId);
+
+    const ownerUser = hallOwner
+      ? users.find((user) => user.id === hallOwner.userId)
+      : undefined;
+
+    // ====================
+    // Find Hall Creator
+    // ====================
+
+    const creatorUser = hall.createdByUserId
+      ? users.find((user) => user.id === hall.createdByUserId)
+      : undefined;
+
+    return {
+      ...hall,
+
+      owner: ownerUser
+        ? {
+            id: ownerUser.id,
+            name: ownerUser.name,
+            email: ownerUser.email,
+            role: ownerUser.role,
+          }
+        : null,
+
+      creator: creatorUser
+        ? {
+            id: creatorUser.id,
+            name: creatorUser.name,
+            email: creatorUser.email,
+            role: creatorUser.role,
+          }
+        : null,
+    };
+  });
+
+  return adminHalls;
 }
 
 // ====================
@@ -50,6 +108,7 @@ export async function getHallById(id: number) {
 
   return hall;
 }
+
 // ====================
 // Get All Halls By Owner ID
 // ====================
@@ -90,6 +149,7 @@ export async function updateHall(
 
   return updatedHall;
 }
+
 // ====================
 // Delete Hall
 // ====================
@@ -99,6 +159,7 @@ export async function deleteHall(id: number) {
 
   return deletedHall;
 }
+
 // ====================
 // Check Hall Ownership
 // ====================
