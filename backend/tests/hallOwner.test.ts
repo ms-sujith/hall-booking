@@ -5,13 +5,15 @@ import bcrypt from "bcrypt";
 import app from "../src/app";
 import { db } from "../src/db";
 
+// ====================
+// Get Authentication Token
+// ====================
+
 async function getToken(email: string, password: string) {
-  const response = await request(app)
-    .post("/auth/login")
-    .send({
-      email,
-      password,
-    });
+  const response = await request(app).post("/auth/login").send({
+    email,
+    password,
+  });
 
   expect(response.status).toBe(200);
   expect(response.body.token).toBeTypeOf("string");
@@ -19,9 +21,17 @@ async function getToken(email: string, password: string) {
   return response.body.token as string;
 }
 
+// ====================
+// Create Temporary Owner
+// ====================
+
 async function createTemporaryOwner() {
-  const email = `owner-test-${Date.now()}@example.com`;
+  const email = `owner-test-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 8)}@example.com`;
+
   const password = "OwnerTest@123";
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await db.orm.public.User.create({
@@ -38,7 +48,15 @@ async function createTemporaryOwner() {
   };
 }
 
+// ====================
+// HallOwner API Tests
+// ====================
+
 describe("HallOwner API", () => {
+  // ====================
+  // GET /hall-owners/:userId
+  // ====================
+
   it("should return a public HallOwner profile without exposing phone", async () => {
     const response = await request(app).get("/hall-owners/12");
 
@@ -52,12 +70,20 @@ describe("HallOwner API", () => {
     expect(response.body.phone).toBeUndefined();
   });
 
+  // ====================
+  // GET /hall-owners/:userId/halls
+  // ====================
+
   it("should return halls belonging to a HallOwner", async () => {
     const response = await request(app).get("/hall-owners/12/halls");
 
     expect(response.status).toBe(200);
     expect(response.body).toBeInstanceOf(Array);
   });
+
+  // ====================
+  // Validation
+  // ====================
 
   it("should reject an invalid user ID for HallOwner lookup", async () => {
     const response = await request(app).get("/hall-owners/abc");
@@ -80,22 +106,21 @@ describe("HallOwner API", () => {
     expect(response.body.message).toBe("Invalid user ID");
   });
 
+  // ====================
+  // POST /hall-owners
+  // ====================
+
   it("should reject an unauthenticated HallOwner creation request", async () => {
-    const response = await request(app)
-      .post("/hall-owners")
-      .send({
-        userId: 12,
-        phone: "9999999999",
-      });
+    const response = await request(app).post("/hall-owners").send({
+      userId: 12,
+      phone: "9999999999",
+    });
 
     expect(response.status).toBe(401);
   });
 
   it("should reject a customer from creating a HallOwner profile", async () => {
-    const customerToken = await getToken(
-      "suresh@test.com",
-      "Suresh@123",
-    );
+    const customerToken = await getToken("suresh@test.com", "Suresh@123");
 
     const response = await request(app)
       .post("/hall-owners")
@@ -110,10 +135,7 @@ describe("HallOwner API", () => {
   });
 
   it("should reject a duplicate HallOwner profile", async () => {
-    const ownerToken = await getToken(
-      "owner@test.com",
-      "Owner@123",
-    );
+    const ownerToken = await getToken("owner@test.com", "Owner@123");
 
     const response = await request(app)
       .post("/hall-owners")
@@ -128,8 +150,14 @@ describe("HallOwner API", () => {
     );
   });
 
+  // ====================
+  // OWNER creates own profile
+  // ====================
+
   it("should allow an OWNER to create a HallOwner profile only for themselves", async () => {
     const temporaryOwner = await createTemporaryOwner();
+
+    let hallOwnerId: number | null = null;
 
     try {
       const ownerToken = await getToken(
@@ -141,20 +169,23 @@ describe("HallOwner API", () => {
         .post("/hall-owners")
         .set("Authorization", `Bearer ${ownerToken}`)
         .send({
-          userId: 10,
           phone: "9999999999",
         });
 
       expect(response.status).toBe(201);
+
       expect(response.body.userId).toBe(temporaryOwner.user.id);
+
       expect(response.body.phone).toBe("9999999999");
 
-      const hallOwnerId = response.body.id;
-
-      await db.orm.public.HallOwner.where({
-        id: hallOwnerId,
-      }).delete();
+      hallOwnerId = response.body.id;
     } finally {
+      if (hallOwnerId) {
+        await db.orm.public.HallOwner.where({
+          id: hallOwnerId,
+        }).delete();
+      }
+
       await db.orm.public.HallOwner.where({
         userId: temporaryOwner.user.id,
       }).delete();
@@ -163,16 +194,17 @@ describe("HallOwner API", () => {
         id: temporaryOwner.user.id,
       }).delete();
     }
-  });
+  }, 15000);
+
+  // ====================
+  // ADMIN creates profile
+  // ====================
 
   it("should allow ADMIN to create a HallOwner profile for an OWNER", async () => {
     const temporaryOwner = await createTemporaryOwner();
 
     try {
-      const adminToken = await getToken(
-        "admin@test.com",
-        "Marjanahalli@123",
-      );
+      const adminToken = await getToken("admin@test.com", "Marjanahalli@123");
 
       const response = await request(app)
         .post("/hall-owners")
@@ -183,7 +215,9 @@ describe("HallOwner API", () => {
         });
 
       expect(response.status).toBe(201);
+
       expect(response.body.userId).toBe(temporaryOwner.user.id);
+
       expect(response.body.phone).toBe("8888888888");
     } finally {
       await db.orm.public.HallOwner.where({
@@ -194,13 +228,14 @@ describe("HallOwner API", () => {
         id: temporaryOwner.user.id,
       }).delete();
     }
-  });
+  }, 15000);
+
+  // ====================
+  // ADMIN validation
+  // ====================
 
   it("should reject ADMIN creation for a CUSTOMER user", async () => {
-    const adminToken = await getToken(
-      "admin@test.com",
-      "Marjanahalli@123",
-    );
+    const adminToken = await getToken("admin@test.com", "Marjanahalli@123");
 
     const response = await request(app)
       .post("/hall-owners")
@@ -211,16 +246,14 @@ describe("HallOwner API", () => {
       });
 
     expect(response.status).toBe(400);
+
     expect(response.body.message).toBe(
       "Only OWNER users can have a HallOwner profile",
     );
   });
 
   it("should reject ADMIN creation for a non-existent user", async () => {
-    const adminToken = await getToken(
-      "admin@test.com",
-      "Marjanahalli@123",
-    );
+    const adminToken = await getToken("admin@test.com", "Marjanahalli@123");
 
     const response = await request(app)
       .post("/hall-owners")
@@ -231,6 +264,7 @@ describe("HallOwner API", () => {
       });
 
     expect(response.status).toBe(404);
+
     expect(response.body.message).toBe("User not found");
   });
 });

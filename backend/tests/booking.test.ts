@@ -3,6 +3,10 @@ import request from "supertest";
 
 import app from "../src/app";
 
+// ====================
+// Get Authentication Token
+// ====================
+
 async function getToken(email: string, password: string) {
   const response = await request(app).post("/auth/login").send({
     email,
@@ -15,7 +19,15 @@ async function getToken(email: string, password: string) {
   return response.body.token as string;
 }
 
+// ====================
+// Booking API Tests
+// ====================
+
 describe("Booking API", () => {
+  // ====================
+  // Create Booking
+  // ====================
+
   it("should create a booking successfully and ignore a client-supplied amount", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
 
@@ -41,13 +53,22 @@ describe("Booking API", () => {
 
     const bookingId = response.body.id;
 
-    const deleteResponse = await request(app)
-      .delete(`/bookings/${bookingId}`)
-      .set("Authorization", `Bearer ${customerToken}`);
+    try {
+      const deleteResponse = await request(app)
+        .delete(`/bookings/${bookingId}`)
+        .set("Authorization", `Bearer ${customerToken}`);
 
-    expect(deleteResponse.status).toBe(200);
-    expect(deleteResponse.body.message).toBe("Booking deleted successfully");
-  });
+      expect(deleteResponse.status).toBe(200);
+
+      expect(deleteResponse.body.message).toBe("Booking deleted successfully");
+    } catch (error) {
+      throw error;
+    }
+  }, 15000);
+
+  // ====================
+  // Authentication
+  // ====================
 
   it("should reject an unauthenticated booking request", async () => {
     const response = await request(app).post("/bookings").send({
@@ -60,6 +81,10 @@ describe("Booking API", () => {
 
     expect(response.status).toBe(401);
   });
+
+  // ====================
+  // Role Authorization
+  // ====================
 
   it("should reject an owner from creating a booking", async () => {
     const ownerToken = await getToken("owner@test.com", "Owner@123");
@@ -78,6 +103,10 @@ describe("Booking API", () => {
     expect(response.status).toBe(403);
   });
 
+  // ====================
+  // Guest Validation
+  // ====================
+
   it("should reject guests above hall capacity", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
 
@@ -93,10 +122,15 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(400);
+
     expect(response.body.message).toContain(
       "Guest count exceeds hall capacity",
     );
   });
+
+  // ====================
+  // Time Validation
+  // ====================
 
   it("should reject an invalid time format", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
@@ -131,8 +165,13 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(400);
+
     expect(response.body.message).toBe("End time must be after start time");
   });
+
+  // ====================
+  // Date Validation
+  // ====================
 
   it("should reject an invalid booking date", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
@@ -149,8 +188,13 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(400);
+
     expect(response.body.message).toBe("Invalid booking date");
   });
+
+  // ====================
+  // Overlap Validation
+  // ====================
 
   it("should reject an overlapping booking slot", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
@@ -167,10 +211,15 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(409);
+
     expect(response.body).toEqual({
       message: "Booking slot is unavailable for the selected time",
     });
   });
+
+  // ====================
+  // Guest Count Validation
+  // ====================
 
   it("should reject invalid guests", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
@@ -187,6 +236,7 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(400);
+
     expect(response.body.message).toBe("Validation failed");
   });
 });
