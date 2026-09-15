@@ -51,11 +51,11 @@ function BookingSuccessContent() {
             </div>
 
             <p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-600">
-              BOOKING CONFIRMED
+              BOOKING REQUEST SUBMITTED
             </p>
 
             <h2 className="mt-3 text-3xl font-bold md:text-4xl">
-              Your hall booking was created!
+              Your hall booking request was created!
             </h2>
 
             <p className="mx-auto mt-4 max-w-lg text-zinc-600">
@@ -143,7 +143,7 @@ export default function BookingSuccessPage() {
     <Suspense
       fallback={
         <main className="flex min-h-screen items-center justify-center bg-zinc-50">
-          <p className="text-zinc-500">Loading booking confirmation...</p>
+          <p className="text-zinc-500">Loading booking request...</p>
         </main>
       }
     >
