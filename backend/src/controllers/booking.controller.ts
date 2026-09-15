@@ -9,13 +9,14 @@ import {
   getBookingById,
   getBookingsByUserId,
   getBookingsByHallId,
-  getBookingsByHallAndDate,
+  isBookingSlotAvailable,
   updateBookingStatus,
   deleteBooking,
 } from "../services/booking.service";
 
 import {
   createBookingSchema,
+  bookingAvailabilitySchema,
   bookingIdParamSchema,
   hallIdParamSchema,
   updateBookingStatusSchema,
@@ -96,13 +97,22 @@ export async function createBookingController(req: Request, res: Response) {
     // Validate Time
     // ====================
 
-    if (endTime) {
-      const startMinutes = convertTimeToMinutes(startTime);
-      const endMinutes = convertTimeToMinutes(endTime);
+    const startMinutes = convertTimeToMinutes(startTime);
 
-      if (startMinutes === null || endMinutes === null) {
+    if (startMinutes === null) {
+      return res.status(400).json({
+        message: "Invalid start time. Use HH:MM",
+      });
+    }
+
+    let endMinutes: number | null = null;
+
+    if (endTime) {
+      endMinutes = convertTimeToMinutes(endTime);
+
+      if (endMinutes === null) {
         return res.status(400).json({
-          message: "Invalid time format. Use HH:MM",
+          message: "Invalid end time. Use HH:MM",
         });
       }
 
@@ -114,61 +124,20 @@ export async function createBookingController(req: Request, res: Response) {
     }
 
     // ====================
-    // Check Existing Bookings
+    // Check Booking Availability
     // ====================
 
-    const existingBookings = await getBookingsByHallAndDate(
+    const isAvailable = await isBookingSlotAvailable(
       numericHallId,
       parsedBookingDate,
+      startTime,
+      endTime ?? null,
     );
 
-    const requestedStart = convertTimeToMinutes(startTime);
-    const requestedEnd = endTime ? convertTimeToMinutes(endTime) : null;
-
-    if (requestedStart === null) {
-      return res.status(400).json({
-        message: "Invalid start time. Use HH:MM",
+    if (!isAvailable) {
+      return res.status(409).json({
+        message: "Booking slot is unavailable for the selected time",
       });
-    }
-
-    for (const existingBooking of existingBookings) {
-      // Ignore rejected/cancelled bookings
-      if (
-        existingBooking.status === "REJECTED" ||
-        existingBooking.status === "CANCELLED"
-      ) {
-        continue;
-      }
-
-      const existingStart = convertTimeToMinutes(existingBooking.startTime);
-
-      const existingEnd = existingBooking.endTime
-        ? convertTimeToMinutes(existingBooking.endTime)
-        : null;
-
-      if (existingStart === null || existingEnd === null) {
-        continue;
-      }
-
-      // If requested booking has no end time,
-      // treat it as unavailable when it starts
-      // inside an existing booking.
-      if (requestedEnd === null) {
-        if (requestedStart >= existingStart && requestedStart < existingEnd) {
-          return res.status(409).json({
-            message: "Booking slot is unavailable for the selected time",
-          });
-        }
-      } else {
-        const isOverlapping =
-          requestedStart < existingEnd && requestedEnd > existingStart;
-
-        if (isOverlapping) {
-          return res.status(409).json({
-            message: "Booking slot is unavailable for the selected time",
-          });
-        }
-      }
     }
 
     // ====================
@@ -200,6 +169,125 @@ export async function createBookingController(req: Request, res: Response) {
 
     return res.status(500).json({
       message: "Failed to create booking",
+    });
+  }
+}
+
+// ====================
+// Check Booking Availability
+// GET /bookings/availability
+// Public
+// ====================
+
+export async function getBookingAvailabilityController(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const result = bookingAvailabilitySchema.safeParse({
+      hallId: req.query.hallId,
+      bookingDate: req.query.bookingDate,
+      startTime: req.query.startTime,
+      endTime: req.query.endTime,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: result.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const { hallId, bookingDate, startTime, endTime } = result.data;
+
+    // ====================
+    // Parse booking date
+    // ====================
+
+    let parsedBookingDate: Temporal.Instant;
+
+    try {
+      parsedBookingDate = Temporal.Instant.from(bookingDate);
+    } catch {
+      return res.status(400).json({
+        message: "Invalid booking date",
+      });
+    }
+
+    // ====================
+    // Validate Time
+    // ====================
+
+    const startMinutes = convertTimeToMinutes(startTime);
+
+    if (startMinutes === null) {
+      return res.status(400).json({
+        message: "Invalid start time. Use HH:MM",
+      });
+    }
+
+    let endMinutes: number | null = null;
+
+    if (endTime) {
+      endMinutes = convertTimeToMinutes(endTime);
+
+      if (endMinutes === null) {
+        return res.status(400).json({
+          message: "Invalid end time. Use HH:MM",
+        });
+      }
+
+      if (startMinutes >= endMinutes) {
+        return res.status(400).json({
+          message: "End time must be after start time",
+        });
+      }
+    }
+
+    // ====================
+    // Check Hall
+    // ====================
+
+    const hall = await db.orm.public.Hall.where({
+      id: hallId,
+    }).first();
+
+    if (!hall) {
+      return res.status(404).json({
+        message: "Hall not found",
+      });
+    }
+
+    // ====================
+    // Check Availability
+    // ====================
+
+    const isAvailable = await isBookingSlotAvailable(
+      hallId,
+      parsedBookingDate,
+      startTime,
+      endTime ?? null,
+    );
+
+    if (!isAvailable) {
+      return res.status(200).json({
+        available: false,
+        message: "Booking slot is unavailable for the selected time",
+      });
+    }
+
+    return res.status(200).json({
+      available: true,
+      message: "Booking slot is available",
+    });
+  } catch (error) {
+    console.error("Failed to check booking availability:", error);
+
+    return res.status(500).json({
+      message: "Failed to check booking availability",
     });
   }
 }
@@ -364,6 +452,7 @@ export async function getBookingByIdController(req: Request, res: Response) {
 // ====================
 // Get My Bookings
 // GET /bookings/my
+// CUSTOMER only
 // ====================
 
 export async function getMyBookingsController(req: Request, res: Response) {

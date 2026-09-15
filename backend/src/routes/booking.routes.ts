@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createBookingController,
+  getBookingAvailabilityController,
   getBookingsController,
   getBookingByIdController,
   getMyBookingsController,
@@ -27,6 +28,14 @@ router.post(
   authorizeRoles("CUSTOMER"),
   createBookingController,
 );
+
+// ====================
+// Check Booking Availability
+// GET /bookings/availability
+// Public
+// ====================
+
+router.get("/availability", getBookingAvailabilityController);
 
 // ====================
 // Get All Bookings
@@ -76,10 +85,11 @@ router.get(
 // ====================
 
 router.get("/:id", authenticateToken, getBookingByIdController);
+
 // ====================
 // Update Booking Status
 // PATCH /bookings/:id/status
-// OWNER / ADMIN
+// CUSTOMER / OWNER / ADMIN
 // ====================
 
 router.patch(
@@ -89,9 +99,14 @@ router.patch(
   updateBookingStatusController,
 );
 
+// ====================
+// Delete Booking
+// DELETE /bookings/:id
 // CUSTOMER → own booking only
-// OWNER    → own hall bookings only
-// ADMIN    → any booking
+// OWNER → own hall bookings only
+// ADMIN → any booking
+// ====================
+
 router.delete("/:id", authenticateToken, deleteBookingController);
 
 export default router;

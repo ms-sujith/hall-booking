@@ -101,6 +101,92 @@ export async function getBookingsByHallAndDate(
 }
 
 // ====================
+// Check Booking Availability
+// ====================
+
+export async function isBookingSlotAvailable(
+  hallId: number,
+  bookingDate: Temporal.Instant,
+  startTime: string,
+  endTime: string | null,
+) {
+  const existingBookings = await getBookingsByHallAndDate(hallId, bookingDate);
+
+  const requestedStart = convertTimeToMinutes(startTime);
+
+  const requestedEnd = endTime ? convertTimeToMinutes(endTime) : null;
+
+  if (requestedStart === null) {
+    return false;
+  }
+
+  for (const existingBooking of existingBookings) {
+    // Cancelled and rejected bookings do not block the slot.
+    if (
+      existingBooking.status === "CANCELLED" ||
+      existingBooking.status === "REJECTED"
+    ) {
+      continue;
+    }
+
+    const existingStart = convertTimeToMinutes(existingBooking.startTime);
+
+    const existingEnd = existingBooking.endTime
+      ? convertTimeToMinutes(existingBooking.endTime)
+      : null;
+
+    if (existingStart === null || existingEnd === null) {
+      continue;
+    }
+
+    // If requested booking has no end time,
+    // it is unavailable when its start is inside an existing booking.
+    if (requestedEnd === null) {
+      if (requestedStart >= existingStart && requestedStart < existingEnd) {
+        return false;
+      }
+    } else {
+      const isOverlapping =
+        requestedStart < existingEnd && requestedEnd > existingStart;
+
+      if (isOverlapping) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+// ====================
+// Convert HH:MM to Minutes
+// ====================
+
+function convertTimeToMinutes(time: string): number | null {
+  const parts = time.split(":");
+
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+// ====================
 // Update Booking Status
 // ====================
 

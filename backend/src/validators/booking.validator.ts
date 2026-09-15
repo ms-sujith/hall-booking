@@ -6,10 +6,7 @@ export const createBookingSchema = z.object({
     .int("hallId must be a whole number")
     .positive("hallId must be greater than 0"),
 
-  bookingDate: z
-    .string()
-    .trim()
-    .min(1, "Booking date is required"),
+  bookingDate: z.string().trim().min(1, "Booking date is required"),
 
   startTime: z
     .string()
@@ -29,6 +26,35 @@ export const createBookingSchema = z.object({
     .positive("Guests must be greater than 0"),
 });
 
+// ====================
+// Booking Availability
+// ====================
+
+export const bookingAvailabilitySchema = z.object({
+  hallId: z.coerce
+    .number()
+    .int("hallId must be a whole number")
+    .positive("hallId must be greater than 0"),
+
+  bookingDate: z.string().trim().min(1, "Booking date is required"),
+
+  startTime: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time format. Use HH:MM"),
+
+  endTime: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time format. Use HH:MM")
+    .optional()
+    .nullable(),
+});
+
+// ====================
+// Booking ID Parameter
+// ====================
+
 export const bookingIdParamSchema = z.object({
   id: z.coerce
     .number()
@@ -36,12 +62,20 @@ export const bookingIdParamSchema = z.object({
     .positive("Booking ID must be greater than 0"),
 });
 
+// ====================
+// Hall ID Parameter
+// ====================
+
 export const hallIdParamSchema = z.object({
   hallId: z.coerce
     .number()
     .int("Hall ID must be a whole number")
     .positive("Hall ID must be greater than 0"),
 });
+
+// ====================
+// Update Booking Status
+// ====================
 
 export const updateBookingStatusSchema = z.object({
   status: z.enum(["CONFIRMED", "REJECTED", "CANCELLED"], {

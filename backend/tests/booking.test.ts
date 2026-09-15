@@ -36,7 +36,7 @@ describe("Booking API", () => {
       .set("Authorization", `Bearer ${customerToken}`)
       .send({
         hallId: 5,
-        bookingDate: "2026-10-15T00:00:00Z",
+        bookingDate: "2026-11-15T00:00:00Z",
         startTime: "10:00",
         endTime: "18:00",
         guests: 100,
