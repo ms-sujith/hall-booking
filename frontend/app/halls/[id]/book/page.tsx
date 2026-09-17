@@ -28,6 +28,14 @@ export default function BookHallPage() {
   const [endTime, setEndTime] = useState("");
   const [guests, setGuests] = useState("");
 
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
+
+  const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+
   useEffect(() => {
     const fetchHall = async () => {
       try {
@@ -41,7 +49,6 @@ export default function BookHallPage() {
         }
 
         const data = await response.json();
-
         const halls = Array.isArray(data) ? data : data.halls || [];
 
         const foundHall = halls.find(
@@ -65,15 +72,154 @@ export default function BookHallPage() {
     fetchHall();
   }, [id]);
 
-  const handleBooking = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const resetAvailability = () => {
+    setAvailabilityChecked(false);
+    setIsAvailable(null);
+    setAvailabilityMessage("");
+    setBookingError("");
+  };
+
+  const handleDateChange = (value: string) => {
+    setBookingDate(value);
+    resetAvailability();
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    resetAvailability();
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    resetAvailability();
+  };
+
+  const handleCheckAvailability = async () => {
     if (!hall) {
-      setError("Hall information is not available.");
+      setAvailabilityMessage("Hall information is not available.");
+      setIsAvailable(false);
+      setAvailabilityChecked(true);
       return;
     }
+
+    setBookingError("");
+    setAvailabilityMessage("");
+
+    if (!bookingDate) {
+      setAvailabilityMessage("Please select a booking date.");
+      setIsAvailable(false);
+      setAvailabilityChecked(true);
+      return;
+    }
+
+    if (!startTime) {
+      setAvailabilityMessage("Please select a start time.");
+      setIsAvailable(false);
+      setAvailabilityChecked(true);
+      return;
+    }
+
+    if (!endTime) {
+      setAvailabilityMessage("Please select an end time.");
+      setIsAvailable(false);
+      setAvailabilityChecked(true);
+      return;
+    }
+
+    if (startTime >= endTime) {
+      setAvailabilityMessage("End time must be later than start time.");
+      setIsAvailable(false);
+      setAvailabilityChecked(true);
+      return;
+    }
+
     try {
-      setError("");
-      setLoading(true);
+      setCheckingAvailability(true);
+      setAvailabilityChecked(false);
+      setIsAvailable(null);
+
+      const query = new URLSearchParams({
+        hallId: String(hall.id),
+        bookingDate: `${bookingDate}T00:00:00Z`,
+        startTime,
+        endTime,
+      });
+
+      const response = await fetch(
+        `${API_URL}/bookings/availability?${query.toString()}`,
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to check hall availability.");
+      }
+
+      setAvailabilityChecked(true);
+      setIsAvailable(Boolean(data.available));
+      setAvailabilityMessage(
+        data.message ||
+          (data.available
+            ? "Booking slot is available."
+            : "Booking slot is unavailable."),
+      );
+    } catch (err) {
+      console.error(err);
+
+      setAvailabilityChecked(true);
+      setIsAvailable(false);
+      setAvailabilityMessage(
+        err instanceof Error
+          ? err.message
+          : "Unable to check availability. Please try again.",
+      );
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  const handleBooking = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!hall) {
+      setBookingError("Hall information is not available.");
+      return;
+    }
+
+    setBookingError("");
+
+    if (!availabilityChecked || !isAvailable) {
+      setBookingError(
+        "Please check availability and make sure the selected time slot is available.",
+      );
+      return;
+    }
+
+    if (!bookingDate || !startTime || !endTime || !guests) {
+      setBookingError("Please fill in all booking details.");
+      return;
+    }
+
+    if (startTime >= endTime) {
+      setBookingError("End time must be later than start time.");
+      return;
+    }
+
+    const guestCount = Number(guests);
+
+    if (
+      !Number.isInteger(guestCount) ||
+      guestCount < 1 ||
+      guestCount > hall.capacity
+    ) {
+      setBookingError(
+        `Number of guests must be between 1 and ${hall.capacity}.`,
+      );
+      return;
+    }
+
+    try {
+      setSubmittingBooking(true);
 
       const token = localStorage.getItem("hallbook_token");
 
@@ -93,7 +239,7 @@ export default function BookHallPage() {
           bookingDate: `${bookingDate}T00:00:00Z`,
           startTime,
           endTime,
-          guests: Number(guests),
+          guests: guestCount,
         }),
       });
 
@@ -111,13 +257,19 @@ export default function BookHallPage() {
     } catch (err) {
       console.error(err);
 
-      setError(
+      setBookingError(
         err instanceof Error
           ? err.message
           : "Unable to create booking. Please try again.",
       );
+
+      // The booking may have failed because the slot was taken
+      // after the availability check.
+      setAvailabilityChecked(false);
+      setIsAvailable(null);
+      setAvailabilityMessage("");
     } finally {
-      setLoading(false);
+      setSubmittingBooking(false);
     }
   };
 
@@ -183,7 +335,7 @@ export default function BookHallPage() {
 
           <div className="flex items-center gap-3">
             <a
-              href="#"
+              href="/login"
               className="rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium hover:bg-zinc-50"
             >
               Login
@@ -272,7 +424,7 @@ export default function BookHallPage() {
                     id="bookingDate"
                     type="date"
                     value={bookingDate}
-                    onChange={(event) => setBookingDate(event.target.value)}
+                    onChange={(event) => handleDateChange(event.target.value)}
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
@@ -291,7 +443,9 @@ export default function BookHallPage() {
                     id="startTime"
                     type="time"
                     value={startTime}
-                    onChange={(event) => setStartTime(event.target.value)}
+                    onChange={(event) =>
+                      handleStartTimeChange(event.target.value)
+                    }
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
@@ -310,7 +464,9 @@ export default function BookHallPage() {
                     id="endTime"
                     type="time"
                     value={endTime}
-                    onChange={(event) => setEndTime(event.target.value)}
+                    onChange={(event) =>
+                      handleEndTimeChange(event.target.value)
+                    }
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
@@ -331,19 +487,76 @@ export default function BookHallPage() {
                     min="1"
                     max={hall.capacity}
                     value={guests}
-                    onChange={(event) => setGuests(event.target.value)}
+                    onChange={(event) => {
+                      setGuests(event.target.value);
+                      setBookingError("");
+                    }}
                     placeholder={`Maximum ${hall.capacity} guests`}
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>
 
+                {/* Availability Message */}
+                {availabilityMessage && (
+                  <div
+                    className={`rounded-lg border px-4 py-3 text-sm ${
+                      isAvailable
+                        ? "border-green-200 bg-green-50 text-green-800"
+                        : "border-red-200 bg-red-50 text-red-800"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="font-semibold">
+                        {isAvailable ? "✓ Available" : "Not Available"}
+                      </span>
+
+                      <span>{availabilityMessage}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Booking Error */}
+                {bookingError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {bookingError}
+                  </div>
+                )}
+
+                {/* Check Availability */}
+                <button
+                  type="button"
+                  onClick={handleCheckAvailability}
+                  disabled={checkingAvailability}
+                  className="w-full rounded-lg border border-indigo-600 bg-white px-5 py-3.5 font-semibold text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {checkingAvailability
+                    ? "Checking Availability..."
+                    : "Check Availability"}
+                </button>
+
+                {/* Continue Booking */}
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-indigo-600 px-5 py-3.5 font-semibold text-white transition hover:bg-indigo-700"
+                  disabled={
+                    submittingBooking ||
+                    checkingAvailability ||
+                    !availabilityChecked ||
+                    !isAvailable
+                  }
+                  className="w-full rounded-lg bg-indigo-600 px-5 py-3.5 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Continue Booking
+                  {submittingBooking
+                    ? "Creating Booking..."
+                    : "Continue Booking"}
                 </button>
+
+                {!availabilityChecked && (
+                  <p className="text-center text-xs text-zinc-500">
+                    Please check availability before continuing with the
+                    booking.
+                  </p>
+                )}
               </form>
             </div>
           </div>
