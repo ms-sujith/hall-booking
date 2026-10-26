@@ -10,6 +10,11 @@ import {
   deletePaymentController,
 } from "../controllers/payment.controller";
 
+import {
+  createRazorpayOrderController,
+  verifyRazorpayPaymentController,
+} from "../controllers/razorpay.controller";
+
 import { authenticateToken } from "../middleware/auth.middleware";
 import { authorizeRoles } from "../middleware/role.middleware";
 
@@ -26,6 +31,32 @@ router.post(
   authenticateToken,
   authorizeRoles("CUSTOMER"),
   createPaymentController,
+);
+
+// ====================
+// Create Razorpay Order
+// POST /payments/razorpay/order
+// CUSTOMER only
+// ====================
+
+router.post(
+  "/razorpay/order",
+  authenticateToken,
+  authorizeRoles("CUSTOMER"),
+  createRazorpayOrderController,
+);
+
+// ====================
+// Verify Razorpay Payment
+// POST /payments/razorpay/verify
+// CUSTOMER only
+// ====================
+
+router.post(
+  "/razorpay/verify",
+  authenticateToken,
+  authorizeRoles("CUSTOMER"),
+  verifyRazorpayPaymentController,
 );
 
 // ====================
