@@ -18,19 +18,65 @@ dotenv.config();
 
 const app = express();
 
+// ====================
+// Security Middleware
+// ====================
+
 app.use(helmet());
 
 // ====================
-// Middleware
+// CORS Configuration
 // ====================
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://hall-booking-brown.vercel.app",
+];
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://hall-booking-brown.vercel.app"],
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header, such as
+      // direct server-to-server requests and local API tools.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // Allow the explicitly trusted frontend origins.
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      // Allow HallBook deployment URLs belonging to this
+      // Vercel team, including the current production deployment.
+      const isHallBookVercelDeployment =
+        /^https:\/\/hall-booking-[a-z0-9-]+-fullstack-sujithms\.vercel\.app$/i.test(
+          origin,
+        );
+
+      if (isHallBookVercelDeployment) {
+        callback(null, true);
+        return;
+      }
+
+      // Reject origins that are not on the allowlist.
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
   }),
 );
 
+// ====================
+// Request Parsing
+// ====================
+
 app.use(express.json({ limit: "100kb" }));
+
+// ====================
+// API Routes
+// ====================
 
 app.use("/users", userRouter);
 app.use("/hall-owners", hallOwnerRoutes);
@@ -61,7 +107,7 @@ app.get("/health", (_req, res) => {
 });
 
 // ====================
-// Global 404 handler
+// Global 404 Handler
 // ====================
 
 app.use((_req, res) => {
@@ -71,7 +117,7 @@ app.use((_req, res) => {
 });
 
 // ====================
-// Global error handler
+// Global Error Handler
 // ====================
 
 app.use(errorHandler);
