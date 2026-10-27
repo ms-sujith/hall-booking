@@ -82,7 +82,8 @@ function verifyRazorpaySignature(
 
 /**
  * POST /payments/razorpay/order
- * Creates a Razorpay order for the authenticated customer's booking.
+ * Creates or reuses a Razorpay order for the authenticated
+ * customer's confirmed booking.
  */
 export async function createRazorpayOrderController(
   req: Request,
@@ -132,7 +133,7 @@ export async function createRazorpayOrderController(
     }).first();
 
     if (existingPayment) {
-      // Do not create another checkout for an already-paid booking.
+      // Never initiate another checkout for an already-paid booking.
       if (existingPayment.status === "PAID") {
         return res.status(409).json({
           message: "This booking has already been paid for.",
@@ -140,7 +141,8 @@ export async function createRazorpayOrderController(
         });
       }
 
-      // Reuse the original Razorpay order if checkout was previously started.
+      // Reuse a Razorpay order if one is already associated
+      // with this pending payment record.
       if (
         existingPayment.status === "PENDING" &&
         existingPayment.paymentMethod === "RAZORPAY" &&
@@ -158,13 +160,23 @@ export async function createRazorpayOrderController(
         });
       }
 
-      return res.status(409).json({
-        message:
-          "A payment record already exists for this booking. Please check its status before trying again.",
-        status: existingPayment.status,
-      });
+      // Legacy pending records may have a method such as UPI
+      // and no transaction ID. They can be linked to Razorpay
+      // without inserting a second payment record.
+      const canReusePendingPayment =
+        existingPayment.status === "PENDING" &&
+        existingPayment.transactionId === null;
+
+      if (!canReusePendingPayment) {
+        return res.status(409).json({
+          message:
+            "A payment record already exists for this booking. Please check its status before trying again.",
+          status: existingPayment.status,
+        });
+      }
     }
 
+    // Create a Razorpay order only after checking the saved payment.
     const order = await razorpay.orders.create({
       amount: amountInPaise,
       currency: "INR",
@@ -175,7 +187,31 @@ export async function createRazorpayOrderController(
       },
     });
 
-    // Store the Razorpay order ID until payment verification succeeds.
+    if (existingPayment) {
+      // Link the legacy pending record to the new Razorpay order.
+      // Reuse the existing payment ID instead of creating a duplicate.
+      await db.orm.public.Payment.where({
+        id: existingPayment.id,
+      }).update({
+        amount,
+        paymentMethod: "RAZORPAY",
+        transactionId: order.id,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      return res.status(200).json({
+        message: "Existing pending payment linked to Razorpay.",
+        keyId: env.RAZORPAY_KEY_ID,
+        orderId: order.id,
+        amount: amountInPaise,
+        currency: "INR",
+        bookingId,
+        paymentId: existingPayment.id,
+      });
+    }
+
+    // No payment exists, so create a new pending payment record.
     const payment = await db.orm.public.Payment.create({
       bookingId,
       amount,
@@ -205,8 +241,8 @@ export async function createRazorpayOrderController(
 
 /**
  * POST /payments/razorpay/verify
- * Verifies the signature and checks Razorpay's payment API before
- * marking the booking payment as PAID.
+ * Verifies the payment signature and independently checks
+ * Razorpay's API before marking the payment as PAID.
  */
 export async function verifyRazorpayPaymentController(
   req: Request,
@@ -268,14 +304,15 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    // Pending payments must use the order stored for this booking.
+    // Pending payments must match the Razorpay order stored
+    // against this booking's payment record.
     if (payment.status !== "PAID" && payment.transactionId !== orderId) {
       return res.status(400).json({
         message: "The Razorpay order does not match this booking's payment.",
       });
     }
 
-    // Independently check the payment with Razorpay's server-side API.
+    // Verify the payment directly with Razorpay's server-side API.
     const razorpay = getRazorpayClient();
     const razorpayPayment = await razorpay.payments.fetch(paymentId);
     const expectedAmount = amountToPaise(booking.totalAmount.toString());
