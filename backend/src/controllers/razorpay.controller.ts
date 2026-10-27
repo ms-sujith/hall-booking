@@ -123,20 +123,47 @@ export async function createRazorpayOrderController(
       });
     }
 
+    const amount = booking.totalAmount.toString();
+    const amountInPaise = amountToPaise(amount);
+    const razorpay = getRazorpayClient();
+
     const existingPayment = await db.orm.public.Payment.where({
       bookingId,
     }).first();
 
     if (existingPayment) {
+      // Do not create another checkout for an already-paid booking.
+      if (existingPayment.status === "PAID") {
+        return res.status(409).json({
+          message: "This booking has already been paid for.",
+          status: "PAID",
+        });
+      }
+
+      // Reuse the original Razorpay order if checkout was previously started.
+      if (
+        existingPayment.status === "PENDING" &&
+        existingPayment.paymentMethod === "RAZORPAY" &&
+        typeof existingPayment.transactionId === "string" &&
+        existingPayment.transactionId.startsWith("order_")
+      ) {
+        return res.status(200).json({
+          message: "Existing Razorpay order reused.",
+          keyId: env.RAZORPAY_KEY_ID,
+          orderId: existingPayment.transactionId,
+          amount: amountInPaise,
+          currency: "INR",
+          bookingId,
+          paymentId: existingPayment.id,
+        });
+      }
+
       return res.status(409).json({
         message:
           "A payment record already exists for this booking. Please check its status before trying again.",
+        status: existingPayment.status,
       });
     }
-
-    const amount = booking.totalAmount.toString();
-    const amountInPaise = amountToPaise(amount);
-    const razorpay = getRazorpayClient();
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -148,8 +175,7 @@ export async function createRazorpayOrderController(
       },
     });
 
-    // The existing database contract has no razorpayOrderId column.
-    // Store the order ID temporarily in transactionId.
+    // Store the Razorpay order ID until payment verification succeeds.
     const payment = await db.orm.public.Payment.create({
       bookingId,
       amount,
@@ -179,8 +205,8 @@ export async function createRazorpayOrderController(
 
 /**
  * POST /payments/razorpay/verify
- * Verifies the checkout signature and independently checks Razorpay's
- * payment API before marking a booking payment as PAID.
+ * Verifies the signature and checks Razorpay's payment API before
+ * marking the booking payment as PAID.
  */
 export async function verifyRazorpayPaymentController(
   req: Request,
@@ -232,7 +258,9 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    const payment = await db.orm.public.Payment.where({ bookingId }).first();
+    const payment = await db.orm.public.Payment.where({
+      bookingId,
+    }).first();
 
     if (!payment) {
       return res.status(404).json({
@@ -240,16 +268,14 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    // For a pending record, the submitted order must match the order created
-    // by this backend. Check this before making another API call.
+    // Pending payments must use the order stored for this booking.
     if (payment.status !== "PAID" && payment.transactionId !== orderId) {
       return res.status(400).json({
         message: "The Razorpay order does not match this booking's payment.",
       });
     }
 
-    // A valid signature proves the callback is authentic, but independently
-    // fetch the payment from Razorpay to confirm capture and the exact amount.
+    // Independently check the payment with Razorpay's server-side API.
     const razorpay = getRazorpayClient();
     const razorpayPayment = await razorpay.payments.fetch(paymentId);
     const expectedAmount = amountToPaise(booking.totalAmount.toString());
@@ -271,8 +297,7 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    // Make successful verification retries idempotent after the remote payment
-    // has also been confirmed.
+    // Make verification retries idempotent.
     if (payment.status === "PAID") {
       if (payment.transactionId === paymentId) {
         return res.status(200).json({
