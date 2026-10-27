@@ -53,7 +53,7 @@ app.use(
       // Allow HallBook deployment URLs belonging to this
       // Vercel team, including the current production deployment.
       const isHallBookVercelDeployment =
-        /^https:\/\/hall-booking-[a-z0-9-]+-fullstack-sujithms\.vercel\.app$/i.test(
+        /^https:\/\/hall-booking-[a-z0-9-]+-fullstack-sujithms-team\.vercel\.app$/i.test(
           origin,
         );
 
