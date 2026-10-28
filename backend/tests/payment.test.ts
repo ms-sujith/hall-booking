@@ -400,6 +400,55 @@ describe("Razorpay Order API", () => {
     }
   }, 15000);
 
+  it("should reuse an existing pending legacy payment without creating a duplicate", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+
+    try {
+      // Simulate a legacy pending UPI payment that has no transaction ID.
+      const legacyPayment = await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "UPI",
+        transactionId: null,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersCreate.mockResolvedValueOnce({
+        id: "order_legacy_retry_123",
+      });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      // The existing pending record should be updated and reused.
+      expect(response.status).toBe(200);
+      expect(response.body.orderId).toBe("order_legacy_retry_123");
+      expect(response.body.bookingId).toBe(booking.id);
+      expect(response.body.paymentId).toBe(legacyPayment.id);
+      expect(response.body.amount).toBe(5500000);
+      expect(response.body.currency).toBe("INR");
+      expect(razorpayOrdersCreate).toHaveBeenCalledTimes(1);
+
+      const savedPayment = await db.orm.public.Payment.where({
+        bookingId: booking.id,
+      }).first();
+
+      expect(savedPayment?.id).toBe(legacyPayment.id);
+      expect(savedPayment?.paymentMethod).toBe("RAZORPAY");
+      expect(savedPayment?.transactionId).toBe("order_legacy_retry_123");
+      expect(savedPayment?.status).toBe("PENDING");
+      expect(savedPayment?.paidAt).toBeNull();
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
   it("should reject an order request for another customer's booking", async () => {
     configureRazorpay();
 
