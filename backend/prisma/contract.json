@@ -20,6 +20,10 @@
       "model": "Payment",
       "namespace": "public"
     },
+    "razorpay_webhook_event": {
+      "model": "RazorpayWebhookEvent",
+      "namespace": "public"
+    },
     "review": {
       "model": "Review",
       "namespace": "public"
@@ -628,6 +632,87 @@
               },
               "namespaceId": "public",
               "table": "payment"
+            }
+          },
+          "RazorpayWebhookEvent": {
+            "fields": {
+              "eventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "processedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "receivedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "eventId": {
+                  "column": "eventId"
+                },
+                "eventType": {
+                  "column": "eventType"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastError": {
+                  "column": "lastError"
+                },
+                "processedAt": {
+                  "column": "processedAt"
+                },
+                "receivedAt": {
+                  "column": "receivedAt"
+                },
+                "status": {
+                  "column": "status"
+                }
+              },
+              "namespaceId": "public",
+              "table": "razorpay_webhook_event"
             }
           },
           "Review": {
@@ -1328,6 +1413,71 @@
                 }
               ]
             },
+            "razorpay_webhook_event": {
+              "columns": {
+                "eventId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "eventType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "lastError": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "processedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "receivedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "RECEIVED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "eventId"
+                  ]
+                }
+              ]
+            },
             "review": {
               "columns": {
                 "comment": {
@@ -1534,7 +1684,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8891afd8aac5098639a41c9e221740e7bb4b2dc5f86163c73a63477ff6770c00"
+    "storageHash": "85a7ec2f0addaf2840edae396900bc4e53fa380c827b6246e9f8711562b7d308"
   },
   "execution": {
     "executionHash": "c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65",

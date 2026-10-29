@@ -1,36 +1,23 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
+import "temporal-polyfill/global";
+import { Temporal } from "temporal-polyfill";
 
 import app from "../src/app";
-
-// ====================
-// Get Authentication Token
-// ====================
+import { db } from "../src/db";
 
 async function getToken(email: string, password: string) {
-  const response = await request(app).post("/auth/login").send({
-    email,
-    password,
-  });
-
+  const response = await request(app)
+    .post("/auth/login")
+    .send({ email, password });
   expect(response.status).toBe(200);
   expect(response.body.token).toBeTypeOf("string");
-
   return response.body.token as string;
 }
 
-// ====================
-// Booking API Tests
-// ====================
-
 describe("Booking API", () => {
-  // ====================
-  // Create Booking
-  // ====================
-
   it("should create a booking successfully and ignore a client-supplied amount", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -44,31 +31,19 @@ describe("Booking API", () => {
       });
 
     expect(response.status).toBe(201);
-
     expect(response.body.userId).toBe(11);
     expect(response.body.hallId).toBe(5);
     expect(response.body.guests).toBe(100);
     expect(response.body.totalAmount.toString()).toBe("55000");
     expect(response.body.status).toBe("PENDING");
 
-    const bookingId = response.body.id;
-
-    try {
-      const deleteResponse = await request(app)
-        .delete(`/bookings/${bookingId}`)
-        .set("Authorization", `Bearer ${customerToken}`);
-
-      expect(deleteResponse.status).toBe(200);
-
-      expect(deleteResponse.body.message).toBe("Booking deleted successfully");
-    } catch (error) {
-      throw error;
-    }
+    const bookingId = response.body.id as number;
+    const deleteResponse = await request(app)
+      .delete(`/bookings/${bookingId}`)
+      .set("Authorization", `Bearer ${customerToken}`);
+    expect(deleteResponse.status).toBe(200);
+    expect(deleteResponse.body.message).toBe("Booking deleted successfully");
   }, 15000);
-
-  // ====================
-  // Authentication
-  // ====================
 
   it("should reject an unauthenticated booking request", async () => {
     const response = await request(app).post("/bookings").send({
@@ -78,17 +53,11 @@ describe("Booking API", () => {
       endTime: "18:00",
       guests: 100,
     });
-
     expect(response.status).toBe(401);
   });
 
-  // ====================
-  // Role Authorization
-  // ====================
-
   it("should reject an owner from creating a booking", async () => {
     const ownerToken = await getToken("owner@test.com", "Owner@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${ownerToken}`)
@@ -99,17 +68,11 @@ describe("Booking API", () => {
         endTime: "18:00",
         guests: 100,
       });
-
     expect(response.status).toBe(403);
   });
 
-  // ====================
-  // Guest Validation
-  // ====================
-
   it("should reject guests above hall capacity", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -120,21 +83,14 @@ describe("Booking API", () => {
         endTime: "18:00",
         guests: 999999,
       });
-
     expect(response.status).toBe(400);
-
     expect(response.body.message).toContain(
       "Guest count exceeds hall capacity",
     );
   });
 
-  // ====================
-  // Time Validation
-  // ====================
-
   it("should reject an invalid time format", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -145,14 +101,12 @@ describe("Booking API", () => {
         endTime: "18:00",
         guests: 100,
       });
-
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Validation failed");
   });
 
   it("should reject when end time is before start time", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -163,19 +117,12 @@ describe("Booking API", () => {
         endTime: "10:00",
         guests: 100,
       });
-
     expect(response.status).toBe(400);
-
     expect(response.body.message).toBe("End time must be after start time");
   });
 
-  // ====================
-  // Date Validation
-  // ====================
-
   it("should reject an invalid booking date", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -186,44 +133,47 @@ describe("Booking API", () => {
         endTime: "18:00",
         guests: 100,
       });
-
     expect(response.status).toBe(400);
-
     expect(response.body.message).toBe("Invalid booking date");
   });
 
-  // ====================
-  // Overlap Validation
-  // ====================
-
   it("should reject an overlapping booking slot", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
-    const response = await request(app)
-      .post("/bookings")
-      .set("Authorization", `Bearer ${customerToken}`)
-      .send({
-        hallId: 5,
-        bookingDate: "2026-09-15T00:00:00Z",
-        startTime: "12:00",
-        endTime: "16:00",
-        guests: 100,
-      });
-
-    expect(response.status).toBe(409);
-
-    expect(response.body).toEqual({
-      message: "Booking slot is unavailable for the selected time",
+    const fixtureDate = "2027-04-21T00:00:00Z";
+    const blockingBooking = await db.orm.public.Booking.create({
+      userId: 11,
+      hallId: 5,
+      bookingDate: Temporal.Instant.from(fixtureDate),
+      startTime: "10:00",
+      endTime: "18:00",
+      guests: 100,
+      totalAmount: "55000",
+      status: "CONFIRMED",
     });
-  });
 
-  // ====================
-  // Guest Count Validation
-  // ====================
+    try {
+      const response = await request(app)
+        .post("/bookings")
+        .set("Authorization", `Bearer ${customerToken}`)
+        .send({
+          hallId: 5,
+          bookingDate: fixtureDate,
+          startTime: "12:00",
+          endTime: "16:00",
+          guests: 100,
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        message: "Booking slot is unavailable for the selected time",
+      });
+    } finally {
+      await db.orm.public.Booking.where({ id: blockingBooking.id }).delete();
+    }
+  }, 15000);
 
   it("should reject invalid guests", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");
-
     const response = await request(app)
       .post("/bookings")
       .set("Authorization", `Bearer ${customerToken}`)
@@ -234,9 +184,7 @@ describe("Booking API", () => {
         endTime: "18:00",
         guests: 0,
       });
-
     expect(response.status).toBe(400);
-
     expect(response.body.message).toBe("Validation failed");
   });
 });

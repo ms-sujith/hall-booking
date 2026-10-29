@@ -1,0 +1,83 @@
+[
+  {
+    "id": "table.razorpay_webhook_event",
+    "label": "Create table \"razorpay_webhook_event\"",
+    "summary": "Creates table \"razorpay_webhook_event\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "razorpay_webhook_event"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"razorpay_webhook_event\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"razorpay_webhook_event\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"razorpay_webhook_event\"",
+        "sql": "CREATE TABLE \"public\".\"razorpay_webhook_event\" (\n  \"eventId\" text NOT NULL,\n  \"eventType\" text NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"lastError\" text,\n  \"processedAt\" timestamptz,\n  \"receivedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"status\" text DEFAULT 'RECEIVED' NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"razorpay_webhook_event\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"razorpay_webhook_event\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.razorpay_webhook_event.razorpay_webhook_event_eventId_key",
+    "label": "Add unique constraint on \"razorpay_webhook_event\" (eventId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "razorpay_webhook_event_eventId_key",
+        "table": "razorpay_webhook_event"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"razorpay_webhook_event_eventId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "razorpay_webhook_event_eventId_key",
+          "public",
+          "\"public\".\"razorpay_webhook_event\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"razorpay_webhook_event_eventId_key\"",
+        "sql": "ALTER TABLE \"public\".\"razorpay_webhook_event\" ADD CONSTRAINT \"razorpay_webhook_event_eventId_key\" UNIQUE (\"eventId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"razorpay_webhook_event_eventId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "razorpay_webhook_event_eventId_key",
+          "public",
+          "\"public\".\"razorpay_webhook_event\""
+        ]
+      }
+    ]
+  }
+]

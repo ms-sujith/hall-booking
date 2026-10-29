@@ -1,31 +1,49 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
+import "temporal-polyfill/global";
+import { Temporal } from "temporal-polyfill";
 
 import app from "../src/app";
+import { db } from "../src/db";
 
 describe("Booking Availability API", () => {
-  const testDate = "2026-10-15T00:00:00Z";
+  // A fixture booking makes overlap tests independent of existing DB contents.
+  const testDate = "2027-04-20T00:00:00.000Z";
+  let blockingBookingId: number | undefined;
 
-  // ====================
-  // Available Slot
-  // ====================
+  beforeAll(async () => {
+    const booking = await db.orm.public.Booking.create({
+      userId: 11,
+      hallId: 5,
+      bookingDate: Temporal.Instant.from(testDate),
+      startTime: "10:00",
+      endTime: "18:00",
+      guests: 100,
+      totalAmount: "55000",
+      status: "CONFIRMED",
+    });
+
+    blockingBookingId = booking.id;
+  });
+
+  afterAll(async () => {
+    if (blockingBookingId !== undefined) {
+      await db.orm.public.Booking.where({ id: blockingBookingId }).delete();
+    }
+  });
 
   it("should return available for a free time slot", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=18:00&endTime=22:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=18:00&endTime=22:00`,
     );
 
     expect(response.status).toBe(200);
     expect(response.body.available).toBe(true);
   });
 
-  // ====================
-  // Exact Overlap
-  // ====================
-
   it("should return unavailable for an exact overlapping slot", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=10:00&endTime=18:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=10:00&endTime=18:00`,
     );
 
     expect(response.status).toBe(200);
@@ -35,77 +53,53 @@ describe("Booking Availability API", () => {
     );
   });
 
-  // ====================
-  // Partial Overlap
-  // ====================
-
   it("should return unavailable for a partially overlapping slot", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=17:00&endTime=20:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=17:00&endTime=20:00`,
     );
 
     expect(response.status).toBe(200);
     expect(response.body.available).toBe(false);
   });
 
-  // ====================
-  // Invalid Start Time
-  // ====================
-
   it("should reject an invalid start time", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=25:00&endTime=18:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=25:00&endTime=18:00`,
     );
 
     expect(response.status).toBe(400);
   });
 
-  // ====================
-  // Invalid End Time
-  // ====================
-
   it("should reject when end time is before start time", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=18:00&endTime=10:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=18:00&endTime=10:00`,
     );
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("End time must be after start time");
   });
 
-  // ====================
-  // Invalid Booking Date
-  // ====================
-
   it("should reject an invalid booking date", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=invalid-date&startTime=10:00&endTime=18:00`,
+      "/bookings/availability?hallId=5&bookingDate=invalid-date&startTime=10:00&endTime=18:00",
     );
 
     expect(response.status).toBe(400);
     expect(response.body.message).toBe("Invalid booking date");
   });
 
-  // ====================
-  // Hall Not Found
-  // ====================
-
   it("should return 404 when the hall does not exist", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=999999&bookingDate=${testDate}&startTime=10:00&endTime=18:00`,
+      `/bookings/availability?hallId=999999&bookingDate=${encodeURIComponent(testDate)}&startTime=10:00&endTime=18:00`,
     );
 
     expect(response.status).toBe(404);
     expect(response.body.message).toBe("Hall not found");
   });
 
-  // ====================
-  // Public Endpoint
-  // ====================
-
   it("should allow availability checks without authentication", async () => {
     const response = await request(app).get(
-      `/bookings/availability?hallId=5&bookingDate=${testDate}&startTime=18:00&endTime=22:00`,
+      `/bookings/availability?hallId=5&bookingDate=${encodeURIComponent(testDate)}&startTime=18:00&endTime=22:00`,
     );
 
     expect(response.status).not.toBe(401);

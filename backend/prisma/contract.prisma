@@ -97,3 +97,15 @@ model Review {
 
   @@unique([userId, hallId])
 }
+
+model RazorpayWebhookEvent {
+  id          Int       @id @default(autoincrement())
+  eventId     String    @unique
+  eventType   String
+  status      String    @default("RECEIVED")
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  lastError   String?
+
+  @@map("razorpay_webhook_event")
+}

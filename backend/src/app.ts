@@ -12,6 +12,7 @@ import bookingRoutes from "./routes/booking.routes";
 import paymentRoutes from "./routes/payment.routes";
 import reviewRoutes from "./routes/review.routes";
 
+import { razorpayWebhookController } from "./controllers/razorpay.webhook.controller";
 import { errorHandler } from "./middleware/error.middleware";
 
 dotenv.config();
@@ -44,14 +45,14 @@ app.use(
         return;
       }
 
-      // Allow the explicitly trusted frontend origins.
+      // Allow explicitly trusted frontend origins.
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
 
-      // Allow HallBook deployment URLs belonging to this
-      // Vercel team, including the current production deployment.
+      // Allow HallBook Vercel deployment URLs for this team,
+      // accommodating both "fulstack" and "fullstack" spellings.
       const isHallBookVercelDeployment =
         /^https:\/\/hall-booking-[a-z0-9-]+-ful{1,2}stack-sujithms-team\.vercel\.app$/i.test(
           origin,
@@ -66,6 +67,18 @@ app.use(
       callback(new Error(`CORS blocked origin: ${origin}`));
     },
   }),
+);
+
+// ====================
+// Razorpay Webhook
+// IMPORTANT: This route must be registered before express.json()
+// so Razorpay signature verification receives the raw request body.
+// ====================
+
+app.post(
+  "/payments/razorpay/webhook",
+  express.raw({ type: "application/json" }),
+  razorpayWebhookController,
 );
 
 // ====================

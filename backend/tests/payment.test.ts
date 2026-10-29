@@ -216,6 +216,7 @@ describe("Payment API", () => {
   });
 
   it("should reject payment when another customer tries to pay for another customer's booking", async () => {
+    const booking = await createConfirmedBooking();
     const temporaryCustomer = await createTemporaryCustomer();
 
     try {
@@ -228,7 +229,7 @@ describe("Payment API", () => {
         .post("/payments")
         .set("Authorization", `Bearer ${customerToken}`)
         .send({
-          bookingId: 1,
+          bookingId: booking.id,
           paymentMethod: "UPI",
         });
 
@@ -237,11 +238,12 @@ describe("Payment API", () => {
         "You can only make payment for your own booking",
       );
     } finally {
+      await deleteBooking(booking.id);
       await db.orm.public.User.where({
         id: temporaryCustomer.user.id,
       }).delete();
     }
-  });
+  }, 15000);
 
   it("should reject payment for a non-confirmed booking", async () => {
     const customerToken = await getToken("suresh@test.com", "Suresh@123");

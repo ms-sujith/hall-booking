@@ -23,8 +23,12 @@ export const env = {
   // Server configuration
   PORT: process.env.PORT || "5000",
 
-  // Razorpay configuration
-  // Optional at startup; validate before using Razorpay endpoints.
+  // Razorpay API credentials
+  // These remain optional at startup and are checked when needed.
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+
+  // Razorpay webhook signature verification
+  // Configure separately in the backend deployment environment.
+  RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
 };

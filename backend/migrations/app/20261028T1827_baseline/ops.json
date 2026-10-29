@@ -1,0 +1,1033 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.booking",
+    "label": "Create table \"booking\"",
+    "summary": "Creates table \"booking\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "booking"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"booking\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"booking\"",
+        "sql": "CREATE TABLE \"public\".\"booking\" (\n  \"bookingDate\" timestamptz NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"endTime\" text,\n  \"guests\" int4 NOT NULL,\n  \"hallId\" int4 NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"startTime\" text NOT NULL,\n  \"status\" text DEFAULT 'PENDING' NOT NULL,\n  \"totalAmount\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"booking\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.hall",
+    "label": "Create table \"hall\"",
+    "summary": "Creates table \"hall\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "hall"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"hall\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"hall\"",
+        "sql": "CREATE TABLE \"public\".\"hall\" (\n  \"address\" text NOT NULL,\n  \"amenities\" text,\n  \"capacity\" int4 NOT NULL,\n  \"city\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"createdByUserId\" int4,\n  \"description\" text,\n  \"id\" SERIAL NOT NULL,\n  \"imageUrl\" text,\n  \"name\" text NOT NULL,\n  \"ownerId\" int4 NOT NULL,\n  \"price\" numeric NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"hall\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.hallOwner",
+    "label": "Create table \"hallOwner\"",
+    "summary": "Creates table \"hallOwner\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "hallOwner"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"hallOwner\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"hallOwner\"",
+        "sql": "CREATE TABLE \"public\".\"hallOwner\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"phone\" text,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"hallOwner\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.payment",
+    "label": "Create table \"payment\"",
+    "summary": "Creates table \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"payment\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"payment\"",
+        "sql": "CREATE TABLE \"public\".\"payment\" (\n  \"amount\" numeric NOT NULL,\n  \"bookingId\" int4 NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"paidAt\" timestamptz,\n  \"paymentMethod\" text NOT NULL,\n  \"status\" text DEFAULT 'PENDING' NOT NULL,\n  \"transactionId\" text,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"payment\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.review",
+    "label": "Create table \"review\"",
+    "summary": "Creates table \"review\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"review\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"review\"",
+        "sql": "CREATE TABLE \"public\".\"review\" (\n  \"comment\" text,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"hallId\" int4 NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"rating\" int4 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"review\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"name\" text NOT NULL,\n  \"passwordHash\" text,\n  \"role\" text DEFAULT 'CUSTOMER' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"user_role_check_ca80046b\" CHECK (\"role\" IN ('CUSTOMER', 'OWNER', 'ADMIN'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.hallOwner.hallOwner_userId_key",
+    "label": "Add unique constraint on \"hallOwner\" (userId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "hallOwner_userId_key",
+        "table": "hallOwner"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"hallOwner_userId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hallOwner_userId_key",
+          "public",
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"hallOwner_userId_key\"",
+        "sql": "ALTER TABLE \"public\".\"hallOwner\" ADD CONSTRAINT \"hallOwner_userId_key\" UNIQUE (\"userId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"hallOwner_userId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hallOwner_userId_key",
+          "public",
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.payment.payment_bookingId_key",
+    "label": "Add unique constraint on \"payment\" (bookingId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "payment_bookingId_key",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"payment_bookingId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_bookingId_key",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"payment_bookingId_key\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ADD CONSTRAINT \"payment_bookingId_key\" UNIQUE (\"bookingId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"payment_bookingId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_bookingId_key",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.payment.payment_transactionId_key",
+    "label": "Add unique constraint on \"payment\" (transactionId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "payment_transactionId_key",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"payment_transactionId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_transactionId_key",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"payment_transactionId_key\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ADD CONSTRAINT \"payment_transactionId_key\" UNIQUE (\"transactionId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"payment_transactionId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_transactionId_key",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.review.review_userId_hallId_key",
+    "label": "Add unique constraint on \"review\" (userId, hallId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "review_userId_hallId_key",
+        "table": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"review_userId_hallId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_userId_hallId_key",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"review_userId_hallId_key\"",
+        "sql": "ALTER TABLE \"public\".\"review\" ADD CONSTRAINT \"review_userId_hallId_key\" UNIQUE (\"userId\", \"hallId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"review_userId_hallId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_userId_hallId_key",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_email_key",
+    "label": "Add unique constraint on \"user\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_email_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.booking.booking_hallId_idx_b9a9fbd0",
+    "label": "Create index \"booking_hallId_idx_b9a9fbd0\" on \"booking\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "booking_hallId_idx_b9a9fbd0",
+        "table": "booking"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"booking_hallId_idx_b9a9fbd0\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking_hallId_idx_b9a9fbd0\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"booking_hallId_idx_b9a9fbd0\"",
+        "sql": "CREATE INDEX \"booking_hallId_idx_b9a9fbd0\" ON \"public\".\"booking\" (\"hallId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"booking_hallId_idx_b9a9fbd0\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking_hallId_idx_b9a9fbd0\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.booking.booking_userId_idx_a489d58a",
+    "label": "Create index \"booking_userId_idx_a489d58a\" on \"booking\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "booking_userId_idx_a489d58a",
+        "table": "booking"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"booking_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"booking_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"booking_userId_idx_a489d58a\" ON \"public\".\"booking\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"booking_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"booking_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.hall.hall_createdByUserId_idx_93e8a540",
+    "label": "Create index \"hall_createdByUserId_idx_93e8a540\" on \"hall\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "hall_createdByUserId_idx_93e8a540",
+        "table": "hall"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"hall_createdByUserId_idx_93e8a540\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall_createdByUserId_idx_93e8a540\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"hall_createdByUserId_idx_93e8a540\"",
+        "sql": "CREATE INDEX \"hall_createdByUserId_idx_93e8a540\" ON \"public\".\"hall\" (\"createdByUserId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"hall_createdByUserId_idx_93e8a540\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall_createdByUserId_idx_93e8a540\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.hall.hall_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"hall_ownerId_idx_e2d0c1ef\" on \"hall\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "hall_ownerId_idx_e2d0c1ef",
+        "table": "hall"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"hall_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"hall_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"hall_ownerId_idx_e2d0c1ef\" ON \"public\".\"hall\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"hall_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"hall_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.review.review_hallId_idx_b9a9fbd0",
+    "label": "Create index \"review_hallId_idx_b9a9fbd0\" on \"review\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "review_hallId_idx_b9a9fbd0",
+        "table": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"review_hallId_idx_b9a9fbd0\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review_hallId_idx_b9a9fbd0\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"review_hallId_idx_b9a9fbd0\"",
+        "sql": "CREATE INDEX \"review_hallId_idx_b9a9fbd0\" ON \"public\".\"review\" (\"hallId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"review_hallId_idx_b9a9fbd0\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review_hallId_idx_b9a9fbd0\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.review.review_userId_idx_a489d58a",
+    "label": "Create index \"review_userId_idx_a489d58a\" on \"review\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "review_userId_idx_a489d58a",
+        "table": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"review_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"review_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"review_userId_idx_a489d58a\" ON \"public\".\"review\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"review_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"review_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.booking.booking_userId_fkey",
+    "label": "Add foreign key \"booking_userId_fkey\" on \"booking\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "booking_userId_fkey",
+        "table": "booking"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"booking_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "booking_userId_fkey",
+          "public",
+          "\"public\".\"booking\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"booking_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"booking\"\nADD CONSTRAINT \"booking_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"booking_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "booking_userId_fkey",
+          "public",
+          "\"public\".\"booking\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.booking.booking_hallId_fkey",
+    "label": "Add foreign key \"booking_hallId_fkey\" on \"booking\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "booking_hallId_fkey",
+        "table": "booking"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"booking_hallId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "booking_hallId_fkey",
+          "public",
+          "\"public\".\"booking\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"booking_hallId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"booking\"\nADD CONSTRAINT \"booking_hallId_fkey\"\nFOREIGN KEY (\"hallId\")\nREFERENCES \"public\".\"hall\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"booking_hallId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "booking_hallId_fkey",
+          "public",
+          "\"public\".\"booking\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.hall.hall_ownerId_fkey",
+    "label": "Add foreign key \"hall_ownerId_fkey\" on \"hall\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "hall_ownerId_fkey",
+        "table": "hall"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"hall_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hall_ownerId_fkey",
+          "public",
+          "\"public\".\"hall\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"hall_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"hall\"\nADD CONSTRAINT \"hall_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"hallOwner\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"hall_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hall_ownerId_fkey",
+          "public",
+          "\"public\".\"hall\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.hall.hall_createdByUserId_fkey",
+    "label": "Add foreign key \"hall_createdByUserId_fkey\" on \"hall\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "hall_createdByUserId_fkey",
+        "table": "hall"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"hall_createdByUserId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hall_createdByUserId_fkey",
+          "public",
+          "\"public\".\"hall\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"hall_createdByUserId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"hall\"\nADD CONSTRAINT \"hall_createdByUserId_fkey\"\nFOREIGN KEY (\"createdByUserId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"hall_createdByUserId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hall_createdByUserId_fkey",
+          "public",
+          "\"public\".\"hall\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.hallOwner.hallOwner_userId_fkey",
+    "label": "Add foreign key \"hallOwner_userId_fkey\" on \"hallOwner\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "hallOwner_userId_fkey",
+        "table": "hallOwner"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"hallOwner_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hallOwner_userId_fkey",
+          "public",
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"hallOwner_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"hallOwner\"\nADD CONSTRAINT \"hallOwner_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"hallOwner_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "hallOwner_userId_fkey",
+          "public",
+          "\"public\".\"hallOwner\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.payment.payment_bookingId_fkey",
+    "label": "Add foreign key \"payment_bookingId_fkey\" on \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "payment_bookingId_fkey",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"payment_bookingId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_bookingId_fkey",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"payment_bookingId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"payment\"\nADD CONSTRAINT \"payment_bookingId_fkey\"\nFOREIGN KEY (\"bookingId\")\nREFERENCES \"public\".\"booking\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"payment_bookingId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "payment_bookingId_fkey",
+          "public",
+          "\"public\".\"payment\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.review.review_userId_fkey",
+    "label": "Add foreign key \"review_userId_fkey\" on \"review\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "review_userId_fkey",
+        "table": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"review_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_userId_fkey",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"review_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"review\"\nADD CONSTRAINT \"review_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"review_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_userId_fkey",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.review.review_hallId_fkey",
+    "label": "Add foreign key \"review_hallId_fkey\" on \"review\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "review_hallId_fkey",
+        "table": "review"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"review_hallId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_hallId_fkey",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"review_hallId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"review\"\nADD CONSTRAINT \"review_hallId_fkey\"\nFOREIGN KEY (\"hallId\")\nREFERENCES \"public\".\"hall\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"review_hallId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "review_hallId_fkey",
+          "public",
+          "\"public\".\"review\""
+        ]
+      }
+    ]
+  }
+]

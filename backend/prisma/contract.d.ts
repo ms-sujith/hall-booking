@@ -33,7 +33,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'8891afd8aac5098639a41c9e221740e7bb4b2dc5f86163c73a63477ff6770c00'>;
+  StorageHashBase<'85a7ec2f0addaf2840edae396900bc4e53fa380c827b6246e9f8711562b7d308'>;
 export type ExecutionHash =
   ExecutionHashBase<'c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65'>;
 export type ProfileHash =
@@ -287,6 +287,15 @@ export type FieldOutputTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly RazorpayWebhookEvent: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly eventId: CodecTypes['pg/text@1']['output'];
+      readonly eventType: CodecTypes['pg/text@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+      readonly receivedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly processedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly lastError: CodecTypes['pg/text@1']['output'] | null;
+    };
     readonly Review: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly userId: CodecTypes['pg/int4@1']['output'];
@@ -354,6 +363,15 @@ export type FieldInputTypes = {
       readonly paidAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly RazorpayWebhookEvent: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly eventId: CodecTypes['pg/text@1']['input'];
+      readonly eventType: CodecTypes['pg/text@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
+      readonly receivedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly processedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly lastError: CodecTypes['pg/text@1']['input'] | null;
     };
     readonly Review: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -423,6 +441,15 @@ export type StorageColumnTypes = {
       readonly transactionId: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly razorpay_webhook_event: {
+      readonly eventId: CodecTypes['pg/text@1']['output'];
+      readonly eventType: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly lastError: CodecTypes['pg/text@1']['output'] | null;
+      readonly processedAt: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly receivedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly status: CodecTypes['pg/text@1']['output'];
+    };
     readonly review: {
       readonly comment: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -490,6 +517,15 @@ export type StorageColumnInputTypes = {
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly transactionId: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly razorpay_webhook_event: {
+      readonly eventId: CodecTypes['pg/text@1']['input'];
+      readonly eventType: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly lastError: CodecTypes['pg/text@1']['input'] | null;
+      readonly processedAt: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly receivedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly status: CodecTypes['pg/text@1']['input'];
     };
     readonly review: {
       readonly comment: CodecTypes['pg/text@1']['input'] | null;
@@ -884,6 +920,58 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly razorpay_webhook_event: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly eventId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly eventType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly status: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'RECEIVED'>;
+                  };
+                };
+                readonly receivedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly processedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly lastError: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['eventId'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
             readonly review: {
               columns: {
                 readonly id: {
@@ -1045,6 +1133,10 @@ type ContractBase = Omit<
     readonly booking: { readonly namespace: 'public' & NamespaceId; readonly model: 'Booking' };
     readonly payment: { readonly namespace: 'public' & NamespaceId; readonly model: 'Payment' };
     readonly review: { readonly namespace: 'public' & NamespaceId; readonly model: 'Review' };
+    readonly razorpay_webhook_event: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'RazorpayWebhookEvent';
+    };
   };
   readonly domain: {
     readonly namespaces: {
@@ -1410,6 +1502,58 @@ type ContractBase = Omit<
                 readonly paidAt: { readonly column: 'paidAt' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly RazorpayWebhookEvent: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly eventId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly eventType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly receivedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly processedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly lastError: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'razorpay_webhook_event';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly eventId: { readonly column: 'eventId' };
+                readonly eventType: { readonly column: 'eventType' };
+                readonly status: { readonly column: 'status' };
+                readonly receivedAt: { readonly column: 'receivedAt' };
+                readonly processedAt: { readonly column: 'processedAt' };
+                readonly lastError: { readonly column: 'lastError' };
               };
             };
           };
