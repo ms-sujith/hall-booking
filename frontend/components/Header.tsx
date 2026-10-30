@@ -61,7 +61,7 @@ export default function Header() {
           </a>
 
           <a
-            href="/#about"
+            href="/about"
             className="text-sm font-medium hover:text-indigo-600"
           >
             About

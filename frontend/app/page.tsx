@@ -297,12 +297,62 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
+            {/* Footer */}
       <footer className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-          <p>© 2026 HallBook. All rights reserved.</p>
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
+          <div className="space-y-3">
+            <a href="/" className="text-2xl font-bold tracking-tight">
+              Hall<span className="text-indigo-600">Book</span>
+            </a>
+            <p className="text-sm leading-6 text-zinc-600">
+              Find and book marriage halls and function venues. Compare venue
+              details and manage booking requests online.
+            </p>
+          </div>
 
-          <p>Built with Next.js, Tailwind CSS, Node.js & PostgreSQL</p>
+          <div>
+            <h3 className="font-semibold text-zinc-900">Explore</h3>
+            <ul className="mt-4 space-y-3 text-sm text-zinc-600">
+              <li><a href="/" className="hover:text-indigo-600">Home</a></li>
+              <li><a href="/halls" className="hover:text-indigo-600">Browse Halls</a></li>
+              <li><a href="/about" className="hover:text-indigo-600">About Us</a></li>
+              <li><a href="/contact" className="hover:text-indigo-600">Contact Us</a></li>
+              <li><a href="/pricing" className="hover:text-indigo-600">Pricing Details</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Policies</h3>
+            <ul className="mt-4 space-y-3 text-sm text-zinc-600">
+              <li><a href="/terms" className="hover:text-indigo-600">Terms &amp; Conditions</a></li>
+              <li><a href="/privacy" className="hover:text-indigo-600">Privacy Policy</a></li>
+              <li><a href="/refund-policy" className="hover:text-indigo-600">Cancellation &amp; Refunds</a></li>
+              <li><a href="/shipping-policy" className="hover:text-indigo-600">Shipping Policy</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Customer Support</h3>
+            <ul className="mt-4 space-y-3 text-sm text-zinc-600">
+              <li>
+                <a href="mailto:sujithms335@gmail.com" className="hover:text-indigo-600">
+                  sujithms335@gmail.com
+                </a>
+              </li>
+              <li>
+                <a href="tel:+919742068540" className="hover:text-indigo-600">
+                  +91 97420 68540
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-200">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-sm text-zinc-500 sm:flex-row sm:justify-between lg:px-8">
+            <p>&copy; 2026 HallBook. All rights reserved.</p>
+            <p>Find. Book. Celebrate.</p>
+          </div>
         </div>
       </footer>
     </main>
