@@ -342,7 +342,7 @@ export default function BookHallPage() {
             </a>
 
             <a
-              href="#"
+              href="/register"
               className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
             >
               Register

@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -168,7 +169,7 @@ export default function LoginPage() {
             <div className="mt-6 text-center text-sm text-zinc-500">
               Don't have an account?{" "}
               <a
-                href="#"
+                href="/register"
                 className="font-medium text-indigo-600 hover:text-indigo-700"
               >
                 Register

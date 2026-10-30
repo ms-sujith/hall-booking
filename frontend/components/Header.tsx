@@ -120,12 +120,7 @@ export default function Header() {
                 Login
               </a>
 
-              <button
-                type="button"
-                className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:block"
-              >
-                Register
-              </button>
+              <a href="/register" className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:block">Register</a>
             </>
           )}
         </div>
