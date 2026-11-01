@@ -1,7 +1,13 @@
 import app from "./app";
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || 10000);
+const HOST = "0.0.0.0";
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`HallBook backend listening on ${HOST}:${PORT}`);
+});
+
+server.on("error", (error) => {
+  console.error("HallBook server startup failed:", error);
+  process.exit(1);
 });
