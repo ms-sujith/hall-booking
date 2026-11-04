@@ -22,6 +22,37 @@ const verifyPaymentSchema = z.object({
     .regex(/^[a-fA-F0-9]{64}$/, "Invalid Razorpay signature format"),
 });
 
+type RazorpayOrderSnapshot = {
+  id: string;
+  amount: number;
+  amount_paid?: number;
+  currency: string;
+  status: string;
+  notes?: Record<string, unknown> | null;
+};
+
+type RazorpayOrderPaymentsSnapshot = {
+  items?: Array<{ status?: string }>;
+};
+
+type RazorpayApiError = {
+  statusCode?: number;
+  error?: {
+    code?: string;
+    description?: string;
+  };
+  message?: string;
+  response?: {
+    status?: number;
+    data?: {
+      error?: {
+        code?: string;
+        description?: string;
+      };
+    };
+  };
+};
+
 function getRazorpayClient(): Razorpay {
   const keyId = env.RAZORPAY_KEY_ID;
   const keySecret = env.RAZORPAY_KEY_SECRET;
@@ -81,9 +112,49 @@ function verifyRazorpaySignature(
 }
 
 /**
+ * Razorpay returns a BAD_REQUEST_ERROR with a message similar to
+ * "The id provided does not exist" when an order ID is not present
+ * in the account/environment associated with the configured API keys.
+ * Only treat that specific response as a stale/cross-environment order.
+ */
+function isRazorpayOrderNotFound(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const candidate = error as RazorpayApiError;
+  const statusCode = Number(
+    candidate.statusCode ?? candidate.response?.status ?? 0,
+  );
+  const errorCode = (
+    candidate.error?.code ??
+    candidate.response?.data?.error?.code ??
+    ""
+  ).toUpperCase();
+  const description = [
+    candidate.error?.description,
+    candidate.response?.data?.error?.description,
+    candidate.message,
+  ]
+    .filter((part): part is string => typeof part === "string")
+    .join(" ")
+    .toLowerCase();
+
+  const isNotFoundStatus =
+    statusCode === 404 ||
+    (statusCode === 400 && errorCode === "BAD_REQUEST_ERROR");
+  const hasNotFoundMessage =
+    description.includes("does not exist") || description.includes("not found");
+
+  return isNotFoundStatus && hasNotFoundMessage;
+}
+
+/**
  * POST /payments/razorpay/order
- * Creates or reuses a Razorpay order for the authenticated
- * customer's confirmed booking.
+ * Creates a Razorpay order for the authenticated customer's confirmed booking.
+ * A saved order is reused only after Razorpay confirms it using the currently
+ * configured API credentials. This prevents a Test Mode order from being sent
+ * to Checkout with a Live Mode key (or vice versa).
  */
 export async function createRazorpayOrderController(
   req: Request,
@@ -91,6 +162,11 @@ export async function createRazorpayOrderController(
 ) {
   try {
     const user = (req as any).user;
+
+    if (!user?.userId) {
+      return res.status(401).json({ message: "Authentication required." });
+    }
+
     const parsed = bookingIdSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -101,15 +177,12 @@ export async function createRazorpayOrderController(
     }
 
     const bookingId = parsed.data.bookingId;
-
     const booking = await db.orm.public.Booking.where({
       id: bookingId,
     }).first();
 
     if (!booking) {
-      return res.status(404).json({
-        message: "Booking not found.",
-      });
+      return res.status(404).json({ message: "Booking not found." });
     }
 
     if (booking.userId !== Number(user.userId)) {
@@ -132,42 +205,140 @@ export async function createRazorpayOrderController(
       bookingId,
     }).first();
 
-    if (existingPayment) {
-      // Never initiate another checkout for an already-paid booking.
-      if (existingPayment.status === "PAID") {
-        return res.status(409).json({
-          message: "This booking has already been paid for.",
-          status: "PAID",
-        });
-      }
+    if (existingPayment?.status === "PAID") {
+      return res.status(409).json({
+        message: "This booking has already been paid for.",
+        status: "PAID",
+      });
+    }
 
-      // Reuse a Razorpay order if one is already associated
-      // with this pending payment record.
-      if (
+    if (existingPayment) {
+      const hasSavedRazorpayOrder =
         existingPayment.status === "PENDING" &&
         existingPayment.paymentMethod === "RAZORPAY" &&
         typeof existingPayment.transactionId === "string" &&
-        existingPayment.transactionId.startsWith("order_")
-      ) {
-        return res.status(200).json({
-          message: "Existing Razorpay order reused.",
-          keyId: env.RAZORPAY_KEY_ID,
-          orderId: existingPayment.transactionId,
-          amount: amountInPaise,
-          currency: "INR",
-          bookingId,
-          paymentId: existingPayment.id,
-        });
+        existingPayment.transactionId.startsWith("order_");
+
+      if (hasSavedRazorpayOrder) {
+        let savedOrderNotFoundInCurrentEnvironment = false;
+
+        try {
+          const savedOrder = (await razorpay.orders.fetch(
+            existingPayment.transactionId as string,
+          )) as unknown as RazorpayOrderSnapshot;
+
+          const notes = savedOrder.notes ?? {};
+          const orderBelongsToBooking =
+            notes.bookingId === String(bookingId) &&
+            notes.customerId === String(user.userId);
+
+          const orderMatchesBooking =
+            savedOrder.id === existingPayment.transactionId &&
+            savedOrder.amount === amountInPaise &&
+            savedOrder.currency === "INR" &&
+            orderBelongsToBooking;
+
+          if (!orderMatchesBooking) {
+            return res.status(409).json({
+              message:
+                "The saved Razorpay order does not match this booking. Payment has not been started. Please contact support.",
+            });
+          }
+
+          if (
+            savedOrder.status === "paid" ||
+            Number(savedOrder.amount_paid ?? 0) > 0
+          ) {
+            return res.status(409).json({
+              message:
+                "The saved Razorpay order has payment activity. Refresh the payment status before trying again.",
+            });
+          }
+
+          if (
+            savedOrder.status !== "created" &&
+            savedOrder.status !== "attempted"
+          ) {
+            return res.status(409).json({
+              message:
+                "The saved Razorpay order is not available for another payment attempt. Please contact support.",
+            });
+          }
+
+          // An attempted order can contain an authorized payment even when
+          // amount_paid is zero. Only reuse it if all previous attempts failed
+          // or there are no payment attempts recorded.
+          if (savedOrder.status === "attempted") {
+            const paymentCollection = (await razorpay.orders.fetchPayments(
+              savedOrder.id,
+            )) as unknown as RazorpayOrderPaymentsSnapshot;
+
+            if (!Array.isArray(paymentCollection.items)) {
+              return res.status(502).json({
+                message:
+                  "Unable to inspect previous attempts for the saved Razorpay order. Please retry shortly.",
+              });
+            }
+
+            const hasUnresolvedAttempt = paymentCollection.items.some(
+              (item) => {
+                const paymentStatus = (item.status ?? "").toLowerCase();
+                return (
+                  paymentStatus !== "failed" && paymentStatus !== "refunded"
+                );
+              },
+            );
+
+            if (hasUnresolvedAttempt) {
+              return res.status(409).json({
+                message:
+                  "The saved Razorpay order has a payment attempt that is not marked failed. Please contact support before retrying.",
+              });
+            }
+          }
+
+          return res.status(200).json({
+            message: "Verified existing Razorpay order reused.",
+            keyId: env.RAZORPAY_KEY_ID,
+            orderId: savedOrder.id,
+            amount: amountInPaise,
+            currency: "INR",
+            bookingId,
+            paymentId: existingPayment.id,
+          });
+        } catch (error) {
+          if (!isRazorpayOrderNotFound(error)) {
+            console.error("Failed to verify existing Razorpay order:", error);
+            return res.status(502).json({
+              message:
+                "Unable to verify the existing Razorpay order. No new order was created. Please retry shortly.",
+            });
+          }
+
+          // The saved order is not available under the currently configured
+          // credentials. Create a new order in the active Razorpay environment.
+          savedOrderNotFoundInCurrentEnvironment = true;
+          console.warn(
+            `Saved Razorpay order was not found in the configured environment for booking ${bookingId}; creating a replacement order.`,
+          );
+        }
+
+        if (!savedOrderNotFoundInCurrentEnvironment) {
+          return res.status(409).json({
+            message:
+              "The existing Razorpay order could not be safely reused. Please contact support.",
+          });
+        }
       }
 
-      // Legacy pending records may have a method such as UPI
-      // and no transaction ID. They can be linked to Razorpay
-      // without inserting a second payment record.
-      const canReusePendingPayment =
+      const canLinkPendingPayment =
         existingPayment.status === "PENDING" &&
-        existingPayment.transactionId === null;
+        (existingPayment.transactionId === null ||
+          (existingPayment.paymentMethod === "RAZORPAY" &&
+            typeof existingPayment.transactionId === "string" &&
+            existingPayment.transactionId.startsWith("order_")));
 
-      if (!canReusePendingPayment) {
+      if (!canLinkPendingPayment) {
         return res.status(409).json({
           message:
             "A payment record already exists for this booking. Please check its status before trying again.",
@@ -176,7 +347,8 @@ export async function createRazorpayOrderController(
       }
     }
 
-    // Create a Razorpay order only after checking the saved payment.
+    // Create an order only when there is no saved order in this environment
+    // or the saved order was confirmed missing under the current credentials.
     const order = await razorpay.orders.create({
       amount: amountInPaise,
       currency: "INR",
@@ -188,8 +360,6 @@ export async function createRazorpayOrderController(
     });
 
     if (existingPayment) {
-      // Link the legacy pending record to the new Razorpay order.
-      // Reuse the existing payment ID instead of creating a duplicate.
       await db.orm.public.Payment.where({
         id: existingPayment.id,
       }).update({
@@ -201,7 +371,7 @@ export async function createRazorpayOrderController(
       });
 
       return res.status(200).json({
-        message: "Existing pending payment linked to Razorpay.",
+        message: "Fresh Razorpay order created for existing payment record.",
         keyId: env.RAZORPAY_KEY_ID,
         orderId: order.id,
         amount: amountInPaise,
@@ -211,7 +381,6 @@ export async function createRazorpayOrderController(
       });
     }
 
-    // No payment exists, so create a new pending payment record.
     const payment = await db.orm.public.Payment.create({
       bookingId,
       amount,
@@ -241,8 +410,8 @@ export async function createRazorpayOrderController(
 
 /**
  * POST /payments/razorpay/verify
- * Verifies the payment signature and independently checks
- * Razorpay's API before marking the payment as PAID.
+ * Verifies the Razorpay signature and independently fetches the payment
+ * from Razorpay before marking the booking payment as PAID.
  */
 export async function verifyRazorpayPaymentController(
   req: Request,
@@ -250,6 +419,11 @@ export async function verifyRazorpayPaymentController(
 ) {
   try {
     const user = (req as any).user;
+
+    if (!user?.userId) {
+      return res.status(401).json({ message: "Authentication required." });
+    }
+
     const parsed = verifyPaymentSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -271,9 +445,7 @@ export async function verifyRazorpayPaymentController(
     }).first();
 
     if (!booking) {
-      return res.status(404).json({
-        message: "Booking not found.",
-      });
+      return res.status(404).json({ message: "Booking not found." });
     }
 
     if (booking.userId !== Number(user.userId)) {
@@ -304,15 +476,15 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    // Pending payments must match the Razorpay order stored
-    // against this booking's payment record.
+    // For a pending payment, the order ID must match the order currently
+    // associated with this booking. A webhook may already have marked it
+    // PAID and replaced transactionId with the Razorpay payment ID.
     if (payment.status !== "PAID" && payment.transactionId !== orderId) {
       return res.status(400).json({
         message: "The Razorpay order does not match this booking's payment.",
       });
     }
 
-    // Verify the payment directly with Razorpay's server-side API.
     const razorpay = getRazorpayClient();
     const razorpayPayment = await razorpay.payments.fetch(paymentId);
     const expectedAmount = amountToPaise(booking.totalAmount.toString());
@@ -334,7 +506,8 @@ export async function verifyRazorpayPaymentController(
       });
     }
 
-    // Make verification retries idempotent.
+    // Make verification retries idempotent, including when the webhook
+    // marked this exact Razorpay payment as PAID first.
     if (payment.status === "PAID") {
       if (payment.transactionId === paymentId) {
         return res.status(200).json({

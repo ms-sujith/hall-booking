@@ -14,12 +14,16 @@ import { env } from "../src/config/env";
 // ====================
 
 const razorpayOrdersCreate = vi.fn();
+const razorpayOrdersFetch = vi.fn();
+const razorpayOrdersFetchPayments = vi.fn();
 const razorpayPaymentsFetch = vi.fn();
 
 vi.mock("razorpay", () => ({
   default: class MockRazorpay {
     orders = {
       create: razorpayOrdersCreate,
+      fetch: razorpayOrdersFetch,
+      fetchPayments: razorpayOrdersFetchPayments,
     };
 
     payments = {
@@ -151,6 +155,8 @@ function signPayment(orderId: string, paymentId: string) {
 afterEach(() => {
   razorpayOrdersCreate.mockReset();
   razorpayOrdersCreate.mockResolvedValue({ id: "order_test_123" });
+  razorpayOrdersFetch.mockReset();
+  razorpayOrdersFetchPayments.mockReset();
   razorpayPaymentsFetch.mockReset();
 
   Object.assign(env, {
@@ -446,6 +452,297 @@ describe("Razorpay Order API", () => {
       expect(savedPayment?.transactionId).toBe("order_legacy_retry_123");
       expect(savedPayment?.status).toBe("PENDING");
       expect(savedPayment?.paidAt).toBeNull();
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should reuse a saved Razorpay order only after verifying it with the active credentials", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const orderId = "order_active_environment_123";
+
+    try {
+      const existingPayment = await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: orderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersFetch.mockResolvedValueOnce({
+        id: orderId,
+        amount: 5500000,
+        amount_paid: 0,
+        currency: "INR",
+        status: "created",
+        notes: {
+          bookingId: String(booking.id),
+          customerId: "11",
+        },
+      });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(razorpayOrdersFetch).toHaveBeenCalledWith(orderId);
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe(
+        "Verified existing Razorpay order reused.",
+      );
+      expect(response.body.orderId).toBe(orderId);
+      expect(response.body.paymentId).toBe(existingPayment.id);
+      expect(razorpayOrdersCreate).not.toHaveBeenCalled();
+
+      const savedPayment = await db.orm.public.Payment.where({
+        bookingId: booking.id,
+      }).first();
+      expect(savedPayment?.transactionId).toBe(orderId);
+      expect(savedPayment?.status).toBe("PENDING");
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should create a fresh order when the saved order does not exist in the active environment", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const staleOrderId = "order_from_other_environment_123";
+    const freshOrderId = "order_fresh_active_environment_123";
+
+    try {
+      const existingPayment = await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: staleOrderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      const notFoundError = Object.assign(
+        new Error("The id provided does not exist"),
+        {
+          statusCode: 400,
+          error: {
+            code: "BAD_REQUEST_ERROR",
+            description: "The id provided does not exist",
+          },
+        },
+      );
+      razorpayOrdersFetch.mockRejectedValueOnce(notFoundError);
+      razorpayOrdersCreate.mockResolvedValueOnce({ id: freshOrderId });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(razorpayOrdersFetch).toHaveBeenCalledWith(staleOrderId);
+      expect(razorpayOrdersCreate).toHaveBeenCalledTimes(1);
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe(
+        "Fresh Razorpay order created for existing payment record.",
+      );
+      expect(response.body.orderId).toBe(freshOrderId);
+      expect(response.body.paymentId).toBe(existingPayment.id);
+
+      const savedPayment = await db.orm.public.Payment.where({
+        bookingId: booking.id,
+      }).first();
+      expect(savedPayment?.id).toBe(existingPayment.id);
+      expect(savedPayment?.transactionId).toBe(freshOrderId);
+      expect(savedPayment?.paymentMethod).toBe("RAZORPAY");
+      expect(savedPayment?.status).toBe("PENDING");
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should not create a new order when the saved order lookup fails for a non-not-found error", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const orderId = "order_existing_lookup_error_123";
+
+    try {
+      await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: orderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersFetch.mockRejectedValueOnce(
+        new Error("Temporary network failure"),
+      );
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(response.status).toBe(502);
+      expect(razorpayOrdersCreate).not.toHaveBeenCalled();
+
+      const savedPayment = await db.orm.public.Payment.where({
+        bookingId: booking.id,
+      }).first();
+      expect(savedPayment?.transactionId).toBe(orderId);
+      expect(savedPayment?.status).toBe("PENDING");
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should reject a saved order whose booking notes do not match", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const orderId = "order_wrong_booking_notes_123";
+
+    try {
+      await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: orderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersFetch.mockResolvedValueOnce({
+        id: orderId,
+        amount: 5500000,
+        amount_paid: 0,
+        currency: "INR",
+        status: "created",
+        notes: {
+          bookingId: "999999",
+          customerId: "11",
+        },
+      });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(response.status).toBe(409);
+      expect(response.body.message).toContain(
+        "does not match this booking",
+      );
+      expect(razorpayOrdersCreate).not.toHaveBeenCalled();
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should not reuse an attempted order when a prior payment attempt is unresolved", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const orderId = "order_unresolved_attempt_123";
+
+    try {
+      await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: orderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersFetch.mockResolvedValueOnce({
+        id: orderId,
+        amount: 5500000,
+        amount_paid: 0,
+        currency: "INR",
+        status: "attempted",
+        notes: {
+          bookingId: String(booking.id),
+          customerId: "11",
+        },
+      });
+      razorpayOrdersFetchPayments.mockResolvedValueOnce({
+        items: [{ status: "authorized" }],
+      });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(razorpayOrdersFetch).toHaveBeenCalledWith(orderId);
+      expect(razorpayOrdersFetchPayments).toHaveBeenCalledWith(orderId);
+      expect(response.status).toBe(409);
+      expect(response.body.message).toContain(
+        "payment attempt that is not marked failed",
+      );
+      expect(razorpayOrdersCreate).not.toHaveBeenCalled();
+    } finally {
+      await deleteBooking(booking.id);
+    }
+  }, 15000);
+
+  it("should reuse an attempted order when all previous payment attempts failed", async () => {
+    configureRazorpay();
+
+    const token = await getToken("suresh@test.com", "Suresh@123");
+    const booking = await createConfirmedBooking();
+    const orderId = "order_only_failed_attempts_123";
+
+    try {
+      const existingPayment = await db.orm.public.Payment.create({
+        bookingId: booking.id,
+        amount: "55000",
+        paymentMethod: "RAZORPAY",
+        transactionId: orderId,
+        status: "PENDING",
+        paidAt: null,
+      });
+
+      razorpayOrdersFetch.mockResolvedValueOnce({
+        id: orderId,
+        amount: 5500000,
+        amount_paid: 0,
+        currency: "INR",
+        status: "attempted",
+        notes: {
+          bookingId: String(booking.id),
+          customerId: "11",
+        },
+      });
+      razorpayOrdersFetchPayments.mockResolvedValueOnce({
+        items: [{ status: "failed" }, { status: "refunded" }],
+      });
+
+      const response = await request(app)
+        .post("/payments/razorpay/order")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ bookingId: booking.id });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe(
+        "Verified existing Razorpay order reused.",
+      );
+      expect(response.body.orderId).toBe(orderId);
+      expect(response.body.paymentId).toBe(existingPayment.id);
+      expect(razorpayOrdersCreate).not.toHaveBeenCalled();
     } finally {
       await deleteBooking(booking.id);
     }
