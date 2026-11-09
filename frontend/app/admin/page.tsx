@@ -92,6 +92,9 @@ export default function AdminPage() {
 
   const [savingHall, setSavingHall] = useState(false);
   const [hallUpdateMessage, setHallUpdateMessage] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imageUploadMessage, setImageUploadMessage] = useState("");
 
   const [deletingHallId, setDeletingHallId] = useState<number | null>(null);
 
@@ -197,6 +200,8 @@ export default function AdminPage() {
     setEditingHall(hall);
 
     setHallUpdateMessage("");
+    setSelectedImage(null);
+    setImageUploadMessage("");
 
     setEditForm({
       name: hall.name || "",
@@ -210,17 +215,83 @@ export default function AdminPage() {
     });
   }
 
-  function closeEditHall() {
-    if (savingHall) {
+  async function handleHallImageUpload() {
+    if (!editingHall || uploadingImage) return;
+
+    if (!selectedImage) {
+      setImageUploadMessage("Please select an image first.");
       return;
     }
 
+    if (!["image/jpeg", "image/png", "image/webp"].includes(selectedImage.type)) {
+      setImageUploadMessage("Only JPEG, PNG, and WebP images are allowed.");
+      return;
+    }
+
+    if (selectedImage.size > 5 * 1024 * 1024) {
+      setImageUploadMessage("Image size must not exceed 5 MB.");
+      return;
+    }
+
+    const token = localStorage.getItem("hallbook_token");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!token) {
+      setImageUploadMessage("Please log in as an administrator.");
+      return;
+    }
+    if (!apiUrl) {
+      setImageUploadMessage("Backend API URL is not configured.");
+      return;
+    }
+
+    const hallId = editingHall.id;
+    try {
+      setUploadingImage(true);
+      setImageUploadMessage("");
+
+      const formData = new FormData();
+      formData.append("image", selectedImage);
+
+      const response = await fetch(`${apiUrl}/halls/${hallId}/image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || "Image upload failed.");
+      }
+      if (typeof data?.imageUrl !== "string" || !data.imageUrl) {
+        throw new Error("Upload completed but no image URL was returned.");
+      }
+
+      setEditForm((previous) => ({ ...previous, imageUrl: data.imageUrl }));
+      setHalls((previous) => previous.map((hall) =>
+        hall.id === hallId ? { ...hall, imageUrl: data.imageUrl } : hall,
+      ));
+      setSelectedImage(null);
+      setImageUploadMessage("Hall image uploaded successfully! It is already saved.");
+    } catch (error) {
+      console.error("Hall image upload error:", error);
+      setImageUploadMessage(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function closeEditHall() {
+    if (savingHall || uploadingImage) {
+      return;
+    }
+
+    setSelectedImage(null);
+    setImageUploadMessage("");
     setEditingHall(null);
     setHallUpdateMessage("");
   }
 
   async function saveHallChanges() {
-    if (!editingHall) {
+    if (!editingHall || uploadingImage) {
       return;
     }
 
@@ -291,10 +362,10 @@ export default function AdminPage() {
 
       setHallUpdateMessage("Hall updated successfully.");
 
-      setTimeout(() => {
-        setEditingHall(null);
-        setHallUpdateMessage("");
-      }, 800);
+      setEditingHall(null);
+      setHallUpdateMessage("");
+      setSelectedImage(null);
+      setImageUploadMessage("");
     } catch (err) {
       console.error("Hall update error:", err);
 
@@ -871,7 +942,7 @@ export default function AdminPage() {
 
               <button
                 onClick={closeEditHall}
-                disabled={savingHall}
+                disabled={savingHall || uploadingImage}
                 className="text-2xl leading-none text-gray-500 hover:text-gray-900 disabled:opacity-50"
                 aria-label="Close"
               >
@@ -1031,6 +1102,47 @@ export default function AdminPage() {
                 />
               </div>
 
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <label htmlFor="hall-image-file" className="mb-2 block text-sm font-semibold text-gray-800">
+                  Upload Hall Image
+                </label>
+                <p className="mb-3 text-xs text-gray-600">
+                  JPEG, PNG or WebP, maximum 5 MB. Uploading immediately saves the new image.
+                </p>
+                {editForm.imageUrl && (
+                  <img
+                    src={editForm.imageUrl}
+                    alt={`${editingHall.name} current image`}
+                    className="mb-3 h-40 w-full rounded-lg border border-gray-200 object-cover"
+                  />
+                )}
+                <input
+                  id="hall-image-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploadingImage || savingHall}
+                  onChange={(event) => {
+                    setSelectedImage(event.target.files?.[0] ?? null);
+                    setImageUploadMessage("");
+                  }}
+                  className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-100 file:px-3 file:py-2 file:font-medium file:text-indigo-700"
+                />
+                {selectedImage && (
+                  <p className="mt-2 break-all text-xs text-gray-600">Selected: {selectedImage.name}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleHallImageUpload}
+                  disabled={!selectedImage || uploadingImage || savingHall}
+                  className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploadingImage ? "Uploading..." : "Upload Image"}
+                </button>
+                {imageUploadMessage && (
+                  <p role="status" className="mt-2 text-sm text-gray-700">{imageUploadMessage}</p>
+                )}
+              </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Amenities
@@ -1054,7 +1166,7 @@ export default function AdminPage() {
             <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={closeEditHall}
-                disabled={savingHall}
+                disabled={savingHall || uploadingImage}
                 className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
@@ -1062,7 +1174,7 @@ export default function AdminPage() {
 
               <button
                 onClick={saveHallChanges}
-                disabled={savingHall}
+                disabled={savingHall || uploadingImage}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingHall ? "Saving..." : "Save Changes"}

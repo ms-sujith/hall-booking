@@ -12,13 +12,16 @@ import {
 import { authenticateToken } from "../middleware/auth.middleware";
 import { authorizeRoles } from "../middleware/role.middleware";
 
+import { hallImageUpload } from "../middleware/hallImage.middleware";
+import { uploadHallImageController } from "../controllers/hallImage.controller";
+
 const router = Router();
 
 // ====================
 // Create Hall
 // POST /halls
-// OWNER → own account
-// ADMIN → any owner
+// OWNER -> own account
+// ADMIN -> any owner
 // ====================
 
 router.post(
@@ -50,8 +53,24 @@ router.get(
 );
 
 // ====================
+// Upload Hall Image
+// POST /halls/:id/image
+// OWNER -> own halls only
+// ADMIN -> any hall
+// ====================
+
+router.post(
+  "/:id/image",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  hallImageUpload,
+  uploadHallImageController,
+);
+
+// ====================
 // Get Hall By ID
 // GET /halls/:id
+// Public
 // ====================
 
 router.get("/:id", getHallByIdController);
@@ -59,8 +78,8 @@ router.get("/:id", getHallByIdController);
 // ====================
 // Update Hall
 // PUT /halls/:id
-// OWNER → own halls only
-// ADMIN → any hall
+// OWNER -> own halls only
+// ADMIN -> any hall
 // ====================
 
 router.put(
@@ -73,8 +92,8 @@ router.put(
 // ====================
 // Delete Hall
 // DELETE /halls/:id
-// OWNER → own halls only
-// ADMIN → any hall
+// OWNER -> own halls only
+// ADMIN -> any hall
 // ====================
 
 router.delete(

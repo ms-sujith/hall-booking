@@ -181,3 +181,15 @@ export async function isHallOwnedByUser(hallId: number, userId: number) {
 
   return hallOwner.userId === userId;
 }
+
+// ====================
+// Update Hall Image Only
+// ====================
+
+export async function updateHallImage(hallId: number, imageUrl: string) {
+  const updatedHall = await db.orm.public.Hall.where({ id: hallId }).update({
+    imageUrl,
+  });
+
+  return updatedHall;
+}
