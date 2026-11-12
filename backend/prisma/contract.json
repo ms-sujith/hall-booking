@@ -12,6 +12,10 @@
       "model": "Hall",
       "namespace": "public"
     },
+    "hallImage": {
+      "model": "HallImage",
+      "namespace": "public"
+    },
     "hallOwner": {
       "model": "HallOwner",
       "namespace": "public"
@@ -348,6 +352,21 @@
                   "namespace": "public"
                 }
               },
+              "galleryImages": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "hallId"
+                  ]
+                },
+                "to": {
+                  "model": "HallImage",
+                  "namespace": "public"
+                }
+              },
               "owner": {
                 "cardinality": "N:1",
                 "on": {
@@ -423,6 +442,93 @@
               },
               "namespaceId": "public",
               "table": "hall"
+            }
+          },
+          "HallImage": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "hallId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "imageUrl": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "isCover": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "storagePath": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "hall": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "hallId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Hall",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "hallId": {
+                  "column": "hallId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "imageUrl": {
+                  "column": "imageUrl"
+                },
+                "isCover": {
+                  "column": "isCover"
+                },
+                "storagePath": {
+                  "column": "storagePath"
+                }
+              },
+              "namespaceId": "public",
+              "table": "hallImage"
             }
           },
           "HallOwner": {
@@ -1248,6 +1354,86 @@
               },
               "uniques": []
             },
+            "hallImage": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "hallId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "imageUrl": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "isCover": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "storagePath": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "hallId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "hallImage"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "hall"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "hallId"
+                  ],
+                  "name": "hallImage_hallId_idx_b9a9fbd0",
+                  "prefix": "hallImage_hallId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "hallOwner": {
               "columns": {
                 "createdAt": {
@@ -1684,7 +1870,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "85a7ec2f0addaf2840edae396900bc4e53fa380c827b6246e9f8711562b7d308"
+    "storageHash": "1c9953769c47be21a30d4666c5147290ae7f2173bcf4bb8632f0aa021d463f1a"
   },
   "execution": {
     "executionHash": "c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65",

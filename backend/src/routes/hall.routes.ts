@@ -15,6 +15,13 @@ import { authorizeRoles } from "../middleware/role.middleware";
 import { hallImageUpload } from "../middleware/hallImage.middleware";
 import { uploadHallImageController } from "../controllers/hallImage.controller";
 
+import { hallGalleryUpload } from "../middleware/hallGallery.middleware";
+import {
+  uploadHallGalleryController,
+  getHallGalleryController,
+  setHallGalleryCoverController,
+} from "../controllers/hallGallery.controller";
+
 const router = Router();
 
 // ====================
@@ -72,6 +79,23 @@ router.post(
 // GET /halls/:id
 // Public
 // ====================
+
+router.post(
+  "/:id/images",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  hallGalleryUpload,
+  uploadHallGalleryController,
+);
+
+router.get("/:id/images", getHallGalleryController);
+
+router.patch(
+  "/:id/images/:imageId/cover",
+  authenticateToken,
+  authorizeRoles("OWNER", "ADMIN"),
+  setHallGalleryCoverController,
+);
 
 router.get("/:id", getHallByIdController);
 

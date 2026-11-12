@@ -33,7 +33,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'85a7ec2f0addaf2840edae396900bc4e53fa380c827b6246e9f8711562b7d308'>;
+  StorageHashBase<'1c9953769c47be21a30d4666c5147290ae7f2173bcf4bb8632f0aa021d463f1a'>;
 export type ExecutionHash =
   ExecutionHashBase<'c9752516018d26436aae7ca947d925cfc2b41c9d52b1c82baab1abfe7dba6f65'>;
 export type ProfileHash =
@@ -269,6 +269,14 @@ export type FieldOutputTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly HallImage: {
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly hallId: CodecTypes['pg/int4@1']['output'];
+      readonly imageUrl: CodecTypes['pg/text@1']['output'];
+      readonly storagePath: CodecTypes['pg/text@1']['output'];
+      readonly isCover: CodecTypes['pg/bool@1']['output'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    };
     readonly HallOwner: {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly userId: CodecTypes['pg/int4@1']['output'];
@@ -345,6 +353,14 @@ export type FieldInputTypes = {
       readonly amenities: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly HallImage: {
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly hallId: CodecTypes['pg/int4@1']['input'];
+      readonly imageUrl: CodecTypes['pg/text@1']['input'];
+      readonly storagePath: CodecTypes['pg/text@1']['input'];
+      readonly isCover: CodecTypes['pg/bool@1']['input'];
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
     };
     readonly HallOwner: {
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -423,6 +439,14 @@ export type StorageColumnTypes = {
       readonly price: CodecTypes['pg/numeric@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     };
+    readonly hallImage: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly hallId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly imageUrl: CodecTypes['pg/text@1']['output'];
+      readonly isCover: CodecTypes['pg/bool@1']['output'];
+      readonly storagePath: CodecTypes['pg/text@1']['output'];
+    };
     readonly hallOwner: {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -499,6 +523,14 @@ export type StorageColumnInputTypes = {
       readonly ownerId: CodecTypes['pg/int4@1']['input'];
       readonly price: CodecTypes['pg/numeric@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+    };
+    readonly hallImage: {
+      readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly hallId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly imageUrl: CodecTypes['pg/text@1']['input'];
+      readonly isCover: CodecTypes['pg/bool@1']['input'];
+      readonly storagePath: CodecTypes['pg/text@1']['input'];
     };
     readonly hallOwner: {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -786,6 +818,73 @@ type ContractBase = Omit<
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'user';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly hallImage: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly hallId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly imageUrl: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly storagePath: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                };
+                readonly isCover: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly createdAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'hallImage_hallId_idx_b9a9fbd0';
+                  readonly prefix: 'hallImage_hallId_idx';
+                  readonly columns: readonly ['hallId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'hallImage';
+                    readonly columns: readonly ['hallId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'hall';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -1130,6 +1229,7 @@ type ContractBase = Omit<
     readonly user: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
     readonly hallOwner: { readonly namespace: 'public' & NamespaceId; readonly model: 'HallOwner' };
     readonly hall: { readonly namespace: 'public' & NamespaceId; readonly model: 'Hall' };
+    readonly hallImage: { readonly namespace: 'public' & NamespaceId; readonly model: 'HallImage' };
     readonly booking: { readonly namespace: 'public' & NamespaceId; readonly model: 'Booking' };
     readonly payment: { readonly namespace: 'public' & NamespaceId; readonly model: 'Payment' };
     readonly review: { readonly namespace: 'public' & NamespaceId; readonly model: 'Review' };
@@ -1326,6 +1426,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly galleryImages: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'HallImage';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['hallId'];
+                };
+              };
               readonly owner: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -1366,6 +1477,59 @@ type ContractBase = Omit<
                 readonly amenities: { readonly column: 'amenities' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly HallImage: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly hallId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly imageUrl: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly storagePath: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly isCover: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly hall: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Hall' };
+                readonly cardinality: 'N:1';
+                readonly on: {
+                  readonly localFields: readonly ['hallId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'hallImage';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly hallId: { readonly column: 'hallId' };
+                readonly imageUrl: { readonly column: 'imageUrl' };
+                readonly storagePath: { readonly column: 'storagePath' };
+                readonly isCover: { readonly column: 'isCover' };
+                readonly createdAt: { readonly column: 'createdAt' };
               };
             };
           };

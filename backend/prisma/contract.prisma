@@ -49,7 +49,20 @@ model Hall {
   createdBy       User                 @relation("HallCreatedBy", fields:[createdByUserId], references:[id])
   bookings        Booking[]
   reviews         Review[]
+  galleryImages HallImage[]
 }
+
+model HallImage {
+  id          Int      @id @default(autoincrement())
+  hallId      Int
+  imageUrl    String
+  storagePath String
+  isCover     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  hall        Hall     @relation(fields: [hallId], references: [id])
+}
+
 
 model Booking {
   id          Int                  @id @default(autoincrement())
