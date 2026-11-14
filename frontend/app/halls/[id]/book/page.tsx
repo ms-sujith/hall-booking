@@ -24,8 +24,8 @@ export default function BookHallPage() {
   const [error, setError] = useState("");
 
   const [bookingDate, setBookingDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
   const [guests, setGuests] = useState("");
 
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -72,6 +72,40 @@ export default function BookHallPage() {
     fetchHall();
   }, [id]);
 
+  const to12Hour = (value: string) => {
+    const [hour = "00", minute = "00"] = value.split(":");
+    const h = Number(hour);
+
+    return {
+      hour: String(h % 12 || 12).padStart(2, "0"),
+      minute,
+      period: h >= 12 ? "PM" : "AM",
+    };
+  };
+
+  const updateTimePart = (
+    value: string,
+    part: "hour" | "minute" | "period",
+    selected: string,
+  ) => {
+    const current = to12Hour(value || "09:00");
+    const next = { ...current, [part]: selected };
+
+    const hour24 =
+      (Number(next.hour) % 12) + (next.period === "PM" ? 12 : 0);
+
+    return `${String(hour24).padStart(2, "0")}:${next.minute}`;
+  };
+
+  const timeHours = Array.from(
+    { length: 12 },
+    (_, i) => String(i + 1).padStart(2, "0"),
+  );
+
+  const timeMinutes = Array.from(
+    { length: 60 },
+    (_, i) => String(i).padStart(2, "0"),
+  );
   const resetAvailability = () => {
     setAvailabilityChecked(false);
     setIsAvailable(null);
@@ -358,7 +392,7 @@ export default function BookHallPage() {
             href={`/halls/${hall.id}`}
             className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
           >
-            ← Back to hall
+            Back to Hall
           </a>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-2">
@@ -371,21 +405,21 @@ export default function BookHallPage() {
               <h2 className="mt-3 text-3xl font-bold">{hall.name}</h2>
 
               <p className="mt-3 text-zinc-600">
-                📍 {hall.city}, {hall.address}
+                Location: {hall.city}, {hall.address}
               </p>
 
               <div className="mt-8 grid grid-cols-2 gap-4">
                 <div className="rounded-xl bg-zinc-50 p-5">
                   <p className="text-sm text-zinc-500">Guest Capacity</p>
 
-                  <p className="mt-2 text-xl font-bold">👥 {hall.capacity}</p>
+                  <p className="mt-2 text-xl font-bold">Guest Capacity: {hall.capacity}</p>
                 </div>
 
                 <div className="rounded-xl bg-zinc-50 p-5">
                   <p className="text-sm text-zinc-500">Price</p>
 
                   <p className="mt-2 text-xl font-bold text-indigo-600">
-                    ₹{Number(hall.price).toLocaleString("en-IN")}
+                    Price: INR {Number(hall.price).toLocaleString("en-IN")}
                   </p>
                 </div>
               </div>
@@ -439,16 +473,51 @@ export default function BookHallPage() {
                     Start Time
                   </label>
 
-                  <input
-                    id="startTime"
-                    type="time"
-                    value={startTime}
-                    onChange={(event) =>
-                      handleStartTimeChange(event.target.value)
-                    }
-                    required
-                    className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+  <select
+    aria-label="startTime hour"
+    value={to12Hour(startTime || "09:00").hour}
+    onChange={(event) =>
+      handleStartTimeChange(
+        updateTimePart(startTime, "hour", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    {timeHours.map((hour) => (
+      <option key={hour} value={hour}>{hour}</option>
+    ))}
+  </select>
+
+  <select
+    aria-label="startTime minute"
+    value={to12Hour(startTime || "09:00").minute}
+    onChange={(event) =>
+      handleStartTimeChange(
+        updateTimePart(startTime, "minute", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    {timeMinutes.map((minute) => (
+      <option key={minute} value={minute}>{minute}</option>
+    ))}
+  </select>
+
+  <select
+    aria-label="startTime AM PM"
+    value={to12Hour(startTime || "09:00").period}
+    onChange={(event) =>
+      handleStartTimeChange(
+        updateTimePart(startTime, "period", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    <option value="AM">AM</option>
+    <option value="PM">PM</option>
+  </select>
+</div>
                 </div>
 
                 {/* End Time */}
@@ -460,16 +529,51 @@ export default function BookHallPage() {
                     End Time
                   </label>
 
-                  <input
-                    id="endTime"
-                    type="time"
-                    value={endTime}
-                    onChange={(event) =>
-                      handleEndTimeChange(event.target.value)
-                    }
-                    required
-                    className="w-full rounded-lg border border-zinc-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+  <select
+    aria-label="endTime hour"
+    value={to12Hour(endTime || "09:00").hour}
+    onChange={(event) =>
+      handleEndTimeChange(
+        updateTimePart(endTime, "hour", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    {timeHours.map((hour) => (
+      <option key={hour} value={hour}>{hour}</option>
+    ))}
+  </select>
+
+  <select
+    aria-label="endTime minute"
+    value={to12Hour(endTime || "09:00").minute}
+    onChange={(event) =>
+      handleEndTimeChange(
+        updateTimePart(endTime, "minute", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    {timeMinutes.map((minute) => (
+      <option key={minute} value={minute}>{minute}</option>
+    ))}
+  </select>
+
+  <select
+    aria-label="endTime AM PM"
+    value={to12Hour(endTime || "09:00").period}
+    onChange={(event) =>
+      handleEndTimeChange(
+        updateTimePart(endTime, "period", event.target.value)
+      )
+    }
+    className="w-full rounded-lg border border-zinc-300 px-3 py-3"
+  >
+    <option value="AM">AM</option>
+    <option value="PM">PM</option>
+  </select>
+</div>
                 </div>
 
                 {/* Guests */}
@@ -508,7 +612,7 @@ export default function BookHallPage() {
                   >
                     <div className="flex items-start gap-2">
                       <span className="font-semibold">
-                        {isAvailable ? "✓ Available" : "Not Available"}
+                        {isAvailable ? "Available" : "Not Available"}
                       </span>
 
                       <span>{availabilityMessage}</span>
@@ -566,7 +670,7 @@ export default function BookHallPage() {
       {/* Footer */}
       <footer className="border-t border-zinc-200">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-6 py-6 text-sm text-zinc-500 md:flex-row">
-          <p>© 2026 HallBook. All rights reserved.</p>
+          <p>Copyright 2026 HallBook. All rights reserved.</p>
 
           <p>Built with Next.js, Tailwind CSS, Node.js & PostgreSQL</p>
         </div>
