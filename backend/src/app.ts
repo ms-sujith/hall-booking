@@ -34,6 +34,7 @@ const allowedOrigins = [
   "http://localhost:3001",
   "https://hall-booking-brown.vercel.app",
   "https://hall-booking-eec8.vercel.app",
+  "https://hall-booking-fulstack-sujithms-team.vercel.app",
 ];
 
 app.use(
