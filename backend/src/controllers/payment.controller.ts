@@ -382,6 +382,22 @@ export async function updatePaymentStatusController(
       });
     }
 
+    // Razorpay status must be established by verified provider events.
+    if (payment.paymentMethod.trim().toUpperCase() === "RAZORPAY") {
+      return res.status(409).json({
+        message:
+          "Razorpay payment status cannot be changed manually.",
+      });
+    }
+
+    // A database status change is not an actual payment refund.
+    if (status === "REFUNDED") {
+      return res.status(409).json({
+        message:
+          "Refunds must be processed and verified with the payment provider.",
+      });
+    }
+
     let paidAt: Temporal.Instant | null = null;
 
     if (status === "PAID") {
@@ -436,6 +452,18 @@ export async function deletePaymentController(req: Request, res: Response) {
     if (!payment) {
       return res.status(404).json({
         message: "Payment not found",
+      });
+    }
+
+    // Retain Razorpay, paid, and refunded records for reconciliation.
+    if (
+      payment.paymentMethod.trim().toUpperCase() === "RAZORPAY" ||
+      payment.status === "PAID" ||
+      payment.status === "REFUNDED"
+    ) {
+      return res.status(409).json({
+        message:
+          "This payment record cannot be deleted because it must be retained for reconciliation and audit.",
       });
     }
 

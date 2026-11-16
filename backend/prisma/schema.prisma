@@ -40,37 +40,40 @@ model User {
   hallOwner    HallOwner?
   bookings     Booking[]
   reviews      Review[]
+  createdHalls Hall[]    @relation("HallCreatedBy")
 }
 
 model HallOwner {
-  id        String   @id @default(uuid())
-  userId    String   @unique
+  id           String   @id @default(uuid())
+  userId       String   @unique
   businessName String?
-  address   String?
-  createdAt DateTime @default(now())
+  address      String?
+  createdAt    DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  halls     Hall[]
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  halls        Hall[]
 }
 
 model Hall {
-  id          String   @id @default(uuid())
-  ownerId     String
-  name        String
-  description String?
-  address     String
-  city        String
-  capacity    Int
-  pricePerDay Decimal  @db.Decimal(10, 2)
-  images      String[]
-  amenities   String[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(uuid())
+  ownerId         String
+  createdByUserId String?
+  name            String
+  description     String?
+  address         String
+  city            String
+  capacity        Int
+  pricePerDay     Decimal   @db.Decimal(10, 2)
+  images          String[]
+  amenities       String[]
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  owner       HallOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  bookings    Booking[]
-  reviews     Review[]
+  owner           HallOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdBy       User?     @relation("HallCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  bookings        Booking[]
+  reviews         Review[]
 }
 
 model Booking {

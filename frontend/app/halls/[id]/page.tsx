@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import HallGallery, { type HallGalleryImage } from "../../../components/HallGallery";
 
 type Hall = {
   id: number;
@@ -22,6 +23,7 @@ export default function HallDetailsPage() {
   const id = params.id;
 
   const [hall, setHall] = useState<Hall | null>(null);
+  const [galleryImages, setGalleryImages] = useState<HallGalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -51,6 +53,27 @@ export default function HallDetailsPage() {
         }
 
         setHall(selectedHall);
+        setGalleryImages([]);
+
+        if (selectedHall) {
+          try {
+            const galleryResponse = await fetch(
+              `${API_URL}/halls/${selectedHall.id}/images`,
+            );
+
+            if (galleryResponse.ok) {
+              const galleryData = await galleryResponse.json();
+
+              setGalleryImages(
+                Array.isArray(galleryData?.images)
+                  ? galleryData.images
+                  : [],
+              );
+            }
+          } catch (galleryError) {
+            console.error("Unable to load hall gallery:", galleryError);
+          }
+        }
       } catch (err) {
         console.error(err);
         setError("Unable to load hall details.");
@@ -243,23 +266,11 @@ export default function HallDetailsPage() {
                 HALL IMAGE
             ========================= */}
 
-            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-gradient-to-br from-indigo-50 to-zinc-100">
-              <div className="flex h-[450px] items-center justify-center">
-                {hall.imageUrl ? (
-                  <img
-                    src={hall.imageUrl}
-                    alt={hall.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="text-center">
-                    <div className="text-8xl">🏛️</div>
-
-                    <p className="mt-4 text-zinc-400">Hall image</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <HallGallery
+              hallName={hall.name}
+              images={galleryImages}
+              fallbackImageUrl={hall.imageUrl}
+            />
 
             {/* =========================
                 HALL INFORMATION
