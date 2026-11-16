@@ -1,0 +1,196 @@
+// SANITIZED ARCHIVE - NOT FOR EXECUTION
+// Original password literals removed.
+
+import "dotenv/config";
+
+import bcrypt from "bcrypt";
+import { Pool } from "pg";
+
+const DATABASE_URL = process.env.DATABASE_URL;
+const DEV_PROJECT_REF = "qtjpkronftlfzyvomnpp";
+
+async function main() {
+  if (!DATABASE_URL) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+
+  const databaseUrl = new URL(DATABASE_URL);
+  const username = decodeURIComponent(databaseUrl.username);
+
+  // Safety guard: never run this script against production.
+  if (
+    !username.includes(DEV_PROJECT_REF) ||
+    !databaseUrl.hostname.includes("ap-south-1.pooler.supabase.com")
+  ) {
+    throw new Error(
+      "Seed aborted: DATABASE_URL does not identify hall-booking-dev. No data was changed.",
+    );
+  }
+
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+  });
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const counts = await client.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM public."user") AS users,
+        (SELECT COUNT(*)::int FROM public."hallOwner") AS hall_owners,
+        (SELECT COUNT(*)::int FROM public."hall") AS halls
+    `);
+
+    const existing = counts.rows[0];
+
+    if (
+      Number(existing.users) !== 0 ||
+      Number(existing.hall_owners) !== 0 ||
+      Number(existing.halls) !== 0
+    ) {
+      throw new Error(
+        "Seed aborted: the development database already has users, hall owners, or halls. No changes will be committed.",
+      );
+    }
+
+    const now = new Date();
+
+    const customerPasswordHash = await bcrypt.hash("[REDACTED_SEED_PASSWORD]", 10);
+    const ownerPasswordHash = await bcrypt.hash("[REDACTED_SEED_PASSWORD]", 10);
+    const adminPasswordHash = await bcrypt.hash(
+      "[REDACTED_SEED_PASSWORD]",
+      10,
+    );
+
+    // Fixed customer ID required by the existing tests.
+    await client.query(
+      `INSERT INTO public."user"
+        ("id", "name", "email", "passwordHash", "role", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        11,
+        "Suresh",
+        "suresh@test.com",
+        customerPasswordHash,
+        "CUSTOMER",
+        now,
+        now,
+      ],
+    );
+
+    const ownerResult = await client.query(
+      `INSERT INTO public."user"
+        ("name", "email", "passwordHash", "role", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING "id"`,
+      [
+        "Test Hall Owner",
+        "owner@test.com",
+        ownerPasswordHash,
+        "OWNER",
+        now,
+        now,
+      ],
+    );
+
+    const ownerUserId = Number(ownerResult.rows[0].id);
+
+    const hallOwnerResult = await client.query(
+      `INSERT INTO public."hallOwner"
+        ("userId", "phone", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4)
+       RETURNING "id"`,
+      [ownerUserId, "9999999999", now, now],
+    );
+
+    const hallOwnerId = Number(hallOwnerResult.rows[0].id);
+
+    await client.query(
+      `INSERT INTO public."user"
+        ("name", "email", "passwordHash", "role", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        "Test Administrator",
+        "admin@test.com",
+        adminPasswordHash,
+        "ADMIN",
+        now,
+        now,
+      ],
+    );
+
+    // Fixed hall ID required by the existing tests.
+    await client.query(
+      `INSERT INTO public."hall"
+        ("id", "ownerId", "createdByUserId", "name", "description",
+         "address", "city", "capacity", "price", "imageUrl", "amenities",
+         "createdAt", "updatedAt")
+       VALUES
+        ($1, $2, NULL, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11)`,
+      [
+        5,
+        hallOwnerId,
+        "HallBook Test Hall",
+        "Development-only test hall",
+        "Test Address",
+        "Bengaluru",
+        500,
+        "55000",
+        "Parking, Catering",
+        now,
+        now,
+      ],
+    );
+
+    // Advance serial sequences beyond the explicitly assigned IDs.
+    await client.query(`
+      SELECT setval(
+        pg_get_serial_sequence('public."user"', 'id'),
+        (SELECT MAX("id") FROM public."user"),
+        true
+      )
+    `);
+
+    await client.query(`
+      SELECT setval(
+        pg_get_serial_sequence('public."hall"', 'id'),
+        (SELECT MAX("id") FROM public."hall"),
+        true
+      )
+    `);
+
+    await client.query(`
+      SELECT setval(
+        pg_get_serial_sequence('public."hallOwner"', 'id'),
+        (SELECT MAX("id") FROM public."hallOwner"),
+        true
+      )
+    `);
+
+    await client.query("COMMIT");
+
+    console.log("Development test data seeded successfully.");
+    console.log("Customer ID: 11");
+    console.log(`Hall ID: 5`);
+    console.log(`Hall owner record ID: ${hallOwnerId}`);
+    console.log("Created test accounts: customer, owner, administrator");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(
+    "Development seed failed:",
+    error instanceof Error ? error.message : "Unknown error",
+  );
+  process.exitCode = 1;
+});
