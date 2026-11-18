@@ -362,6 +362,8 @@ export async function createRazorpayOrderController(
     if (existingPayment) {
       await db.orm.public.Payment.where({
         id: existingPayment.id,
+        status: "PENDING",
+        transactionId: existingPayment.transactionId,
       }).update({
         amount,
         paymentMethod: "RAZORPAY",
@@ -369,6 +371,19 @@ export async function createRazorpayOrderController(
         status: "PENDING",
         paidAt: null,
       });
+
+      const confirmedOrderPayment = await db.orm.public.Payment.where({
+        id: existingPayment.id,
+      }).first();
+
+      if (
+        confirmedOrderPayment?.status !== "PENDING" ||
+        confirmedOrderPayment.transactionId !== order.id
+      ) {
+        return res.status(409).json({
+          message: "Payment state changed during order creation. Please retry.",
+        });
+      }
 
       return res.status(200).json({
         message: "Fresh Razorpay order created for existing payment record.",
@@ -523,16 +538,31 @@ export async function verifyRazorpayPaymentController(
 
     const updatedPayment = await db.orm.public.Payment.where({
       id: payment.id,
+      status: "PENDING",
+      transactionId: orderId,
     }).update({
       status: "PAID",
       transactionId: paymentId,
       paidAt: Temporal.Now.instant(),
     });
 
+    const confirmedPaidPayment = await db.orm.public.Payment.where({
+      id: payment.id,
+    }).first();
+
+    if (
+      confirmedPaidPayment?.status !== "PAID" ||
+      confirmedPaidPayment.transactionId !== paymentId
+    ) {
+      return res.status(409).json({
+        message: "Payment state changed during verification. Please retry.",
+      });
+    }
+
     return res.status(200).json({
       message: "Payment verified successfully.",
       status: "PAID",
-      payment: updatedPayment,
+      payment: confirmedPaidPayment,
     });
   } catch (error) {
     console.error("Verify Razorpay payment error:", error);

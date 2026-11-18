@@ -620,6 +620,18 @@ export async function updateBookingStatusController(
     // ====================
 
     if (user.role === "ADMIN") {
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
+        });
+      }
+
       const updatedBooking = await updateBookingStatus(id, status);
 
       return res.json(updatedBooking);
@@ -647,6 +659,18 @@ export async function updateBookingStatusController(
       if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") {
         return res.status(400).json({
           message: "Only pending or confirmed bookings can be cancelled",
+        });
+      }
+
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
         });
       }
 
@@ -685,6 +709,18 @@ export async function updateBookingStatusController(
       if (hall.ownerId !== hallOwner.id) {
         return res.status(403).json({
           message: "You can only update bookings for your own halls",
+        });
+      }
+
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
         });
       }
 
@@ -750,6 +786,18 @@ export async function deleteBookingController(req: Request, res: Response) {
     // ====================
 
     if (user.role === "ADMIN") {
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
+        });
+      }
+
       const deletedBooking = await deleteBooking(id);
 
       return res.json({
@@ -766,6 +814,18 @@ export async function deleteBookingController(req: Request, res: Response) {
       if (booking.userId !== Number(user.userId)) {
         return res.status(403).json({
           message: "You can only delete your own bookings",
+        });
+      }
+
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
         });
       }
 
@@ -805,6 +865,18 @@ export async function deleteBookingController(req: Request, res: Response) {
       if (hall.ownerId !== hallOwner.id) {
         return res.status(403).json({
           message: "You can only delete bookings for your own halls",
+        });
+      }
+
+      // Check linked payments only after role and ownership authorization.
+      const linkedPayment = await db.orm.public.Payment.where({
+        bookingId: id,
+      }).first();
+
+      if (linkedPayment) {
+        return res.status(409).json({
+          message:
+            "This booking has a payment record. Contact support before changing or deleting it.",
         });
       }
 

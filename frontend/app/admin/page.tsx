@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "../../components/Header";
 
 type User = {
@@ -54,6 +54,11 @@ type Booking = {
   };
 };
 
+type AdminGalleryImage = {
+  id: number;
+  imageUrl: string;
+  isCover?: boolean;
+};
 type EditHallForm = {
   name: string;
   description: string;
@@ -95,6 +100,14 @@ export default function AdminPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUploadMessage, setImageUploadMessage] = useState("");
+  const [galleryImages, setGalleryImages] = useState<AdminGalleryImage[]>([]);
+  const [selectedGalleryFiles, setSelectedGalleryFiles] = useState<File[]>([]);
+  const [galleryInputVersion, setGalleryInputVersion] = useState(0);
+  const [loadingGallery, setLoadingGallery] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [updatingCoverId, setUpdatingCoverId] = useState<number | null>(null);
+  const [galleryMessage, setGalleryMessage] = useState("");
+  const galleryRequestId = useRef(0);
 
   const [deletingHallId, setDeletingHallId] = useState<number | null>(null);
 
@@ -197,11 +210,15 @@ export default function AdminPage() {
   }, []);
 
   function openEditHall(hall: Hall) {
+    galleryRequestId.current += 1;
     setEditingHall(hall);
 
     setHallUpdateMessage("");
     setSelectedImage(null);
     setImageUploadMessage("");
+    setGalleryImages([]);
+    setSelectedGalleryFiles([]);
+    setGalleryMessage("");
 
     setEditForm({
       name: hall.name || "",
@@ -213,10 +230,239 @@ export default function AdminPage() {
       imageUrl: hall.imageUrl || "",
       amenities: hall.amenities || "",
     });
+    void loadHallGallery(hall.id);
   }
+  async function loadHallGallery(hallId: number, preserveMessage = false) {
+    const requestId = ++galleryRequestId.current;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+    if (!apiUrl) {
+      setLoadingGallery(false);
+      setGalleryMessage("Backend API URL is not configured.");
+      return;
+    }
+
+    try {
+      setLoadingGallery(true);
+      if (!preserveMessage) {
+        setGalleryMessage("");
+      }
+
+      const response = await fetch(`${apiUrl}/halls/${hallId}/images`);
+      const data = await response.json().catch(() => null);
+
+      if (requestId !== galleryRequestId.current) return;
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to load hall gallery.");
+      }
+
+      const images = Array.isArray(data?.images) ? data.images : [];
+      setGalleryImages(images);
+    } catch (error) {
+      if (requestId !== galleryRequestId.current) return;
+
+      console.error("Hall gallery fetch error:", error);
+      setGalleryImages([]);
+      setGalleryMessage(
+        error instanceof Error ? error.message : "Failed to load hall gallery."
+      );
+    } finally {
+      if (requestId === galleryRequestId.current) {
+        setLoadingGallery(false);
+      }
+    }
+  }
+  async function handleGalleryUpload() {
+    if (!editingHall || uploadingGallery || uploadingImage || savingHall || updatingCoverId !== null) return;
+
+    const files = selectedGalleryFiles;
+
+    if (files.length < 1 || files.length > 10) {
+      setGalleryMessage("Select between 1 and 10 images.");
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (files.some((file) => !allowedTypes.includes(file.type))) {
+      setGalleryMessage("Only JPEG, PNG and WebP images are allowed.");
+      return;
+    }
+
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+      setGalleryMessage("Each image must be 5 MB or smaller.");
+      return;
+    }
+
+    const token = localStorage.getItem("hallbook_token");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!token) {
+      setGalleryMessage("Please log in again to upload images.");
+      return;
+    }
+
+    if (!apiUrl) {
+      setGalleryMessage("Backend API URL is not configured.");
+      return;
+    }
+
+    const hallId = editingHall.id;
+    const requestId = galleryRequestId.current;
+
+    const formData = new FormData();
+
+    for (const file of files) {
+      formData.append("images", file);
+    }
+
+    try {
+      setUploadingGallery(true);
+      setGalleryMessage("");
+
+      const response = await fetch(`${apiUrl}/halls/${hallId}/images`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (requestId !== galleryRequestId.current) return;
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Gallery upload failed.");
+      }
+
+      if (!Array.isArray(data?.images) || data.images.length === 0) {
+        throw new Error("Upload response did not contain saved images.");
+      }
+
+      setSelectedGalleryFiles([]);
+      setGalleryInputVersion((version) => version + 1);
+
+      if (response.status === 207) {
+        setGalleryMessage(
+          `${data.images.length} image(s) uploaded. Some images failed.`
+        );
+      } else {
+        setGalleryMessage(
+          `${data.images.length} image(s) uploaded successfully.`
+        );
+      }
+
+      await loadHallGallery(hallId, true);
+    } catch (error) {
+      if (requestId !== galleryRequestId.current) return;
+
+      console.error("Gallery upload error:", error);
+
+      setGalleryMessage(
+        error instanceof Error ? error.message : "Gallery upload failed."
+      );
+    } finally {
+      setUploadingGallery(false);
+    }
+  }
+  async function handleSetGalleryCover(imageId: number) {
+    if (
+      !editingHall ||
+      savingHall ||
+      uploadingImage ||
+      uploadingGallery ||
+      updatingCoverId !== null
+    ) {
+      return;
+    }
+
+    const token = localStorage.getItem("hallbook_token");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+    if (!token) {
+      setGalleryMessage("Please log in again to update the cover.");
+      return;
+    }
+
+    if (!apiUrl) {
+      setGalleryMessage("Backend API URL is not configured.");
+      return;
+    }
+
+    const hallId = editingHall.id;
+    const requestId = galleryRequestId.current;
+
+    try {
+      setUpdatingCoverId(imageId);
+      setGalleryMessage("");
+
+      const response = await fetch(
+        `${apiUrl}/halls/${hallId}/images/${imageId}/cover`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (requestId !== galleryRequestId.current) return;
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to update cover image.");
+      }
+
+      if (
+        data?.hallId !== hallId ||
+        data?.imageId !== imageId ||
+        typeof data?.imageUrl !== "string" ||
+        !data.imageUrl ||
+        data?.isCover !== true
+      ) {
+        throw new Error("Cover update response was invalid.");
+      }
+
+      setGalleryImages((previous) =>
+        previous.map((image) => ({
+          ...image,
+          isCover: image.id === imageId,
+        }))
+      );
+
+      setEditForm((previous) => ({
+        ...previous,
+        imageUrl: data.imageUrl,
+      }));
+
+      setHalls((previous) =>
+        previous.map((hall) =>
+          hall.id === hallId
+            ? { ...hall, imageUrl: data.imageUrl }
+            : hall
+        )
+      );
+
+      setGalleryMessage("Hall cover image updated successfully.");
+    } catch (error) {
+      if (requestId !== galleryRequestId.current) return;
+
+      console.error("Cover image update error:", error);
+
+      setGalleryMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update cover image."
+      );
+    } finally {
+      setUpdatingCoverId(null);
+    }
+  }
   async function handleHallImageUpload() {
-    if (!editingHall || uploadingImage) return;
+    if (!editingHall || uploadingImage || uploadingGallery || updatingCoverId !== null) return;
 
     if (!selectedImage) {
       setImageUploadMessage("Please select an image first.");
@@ -280,9 +526,11 @@ export default function AdminPage() {
   }
 
   function closeEditHall() {
-    if (savingHall || uploadingImage) {
+    if (savingHall || uploadingImage || uploadingGallery || updatingCoverId !== null) {
       return;
     }
+
+    galleryRequestId.current += 1;
 
     setSelectedImage(null);
     setImageUploadMessage("");
@@ -291,7 +539,12 @@ export default function AdminPage() {
   }
 
   async function saveHallChanges() {
-    if (!editingHall || uploadingImage) {
+    if (
+      !editingHall ||
+      uploadingImage ||
+      uploadingGallery ||
+      updatingCoverId !== null
+    ) {
       return;
     }
 
@@ -942,7 +1195,7 @@ export default function AdminPage() {
 
               <button
                 onClick={closeEditHall}
-                disabled={savingHall || uploadingImage}
+                disabled={savingHall || uploadingImage || uploadingGallery || updatingCoverId !== null}
                 className="text-2xl leading-none text-gray-500 hover:text-gray-900 disabled:opacity-50"
                 aria-label="Close"
               >
@@ -1143,6 +1396,131 @@ export default function AdminPage() {
                 )}
               </div>
 
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-4">
+                <h3 className="mb-2 text-base font-semibold text-gray-900">
+                  Hall Photo Gallery
+                </h3>
+
+                <p className="mb-3 text-xs text-gray-600">
+                  Upload up to 10 JPEG, PNG or WebP images at a time.
+                  Maximum 5 MB per image.
+                </p>
+
+                <label
+                  htmlFor="hall-gallery-files"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
+                  Select Gallery Images
+                </label>
+
+                <input
+                  key={galleryInputVersion}
+                  id="hall-gallery-files"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={
+                    uploadingGallery ||
+                    uploadingImage ||
+                    savingHall ||
+                    updatingCoverId !== null
+                  }
+                  onChange={(event) => {
+                    setSelectedGalleryFiles(
+                      Array.from(event.target.files ?? [])
+                    );
+                    setGalleryMessage("");
+                  }}
+                  className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-100 file:px-3 file:py-2 file:font-medium file:text-indigo-700"
+                />
+
+                {selectedGalleryFiles.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-600">
+                    {selectedGalleryFiles.length} image(s) selected
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleGalleryUpload}
+                  disabled={
+                    selectedGalleryFiles.length === 0 ||
+                    selectedGalleryFiles.length > 10 ||
+                    uploadingGallery ||
+                    uploadingImage ||
+                    savingHall ||
+                    updatingCoverId !== null
+                  }
+                  className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploadingGallery
+                    ? "Uploading Gallery..."
+                    : "Upload Gallery Images"}
+                </button>
+
+                {galleryMessage && (
+                  <p role="status" className="mt-3 text-sm text-gray-700">
+                    {galleryMessage}
+                  </p>
+                )}
+
+                <div className="mt-5 border-t border-indigo-100 pt-4">
+                  <h4 className="mb-3 text-sm font-semibold text-gray-800">
+                    Existing Gallery ({galleryImages.length})
+                  </h4>
+
+                  {loadingGallery ? (
+                    <p className="text-sm text-gray-600">
+                      Loading gallery images...
+                    </p>
+                  ) : galleryImages.length === 0 ? (
+                    <p className="text-sm text-gray-600">
+                      No gallery images uploaded yet.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {galleryImages.map((image) => (
+                        <div
+                          key={image.id}
+                          className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+                        >
+                          <img
+                            src={image.imageUrl}
+                            alt={`${editingHall.name} gallery image`}
+                            className="h-28 w-full object-cover"
+                          />
+
+                          <div className="p-2">
+                            {image.isCover ? (
+                              <span className="text-xs font-semibold text-green-700">
+                                Current Cover
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleSetGalleryCover(image.id)
+                                }
+                                disabled={
+                                  updatingCoverId !== null ||
+                                  uploadingGallery ||
+                                  uploadingImage ||
+                                  savingHall
+                                }
+                                className="w-full rounded-md bg-blue-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {updatingCoverId === image.id
+                                  ? "Updating..."
+                                  : "Set as Cover"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Amenities
@@ -1166,7 +1544,7 @@ export default function AdminPage() {
             <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={closeEditHall}
-                disabled={savingHall || uploadingImage}
+                disabled={savingHall || uploadingImage || uploadingGallery || updatingCoverId !== null}
                 className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
@@ -1174,7 +1552,7 @@ export default function AdminPage() {
 
               <button
                 onClick={saveHallChanges}
-                disabled={savingHall || uploadingImage}
+                disabled={savingHall || uploadingImage || uploadingGallery || updatingCoverId !== null}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingHall ? "Saving..." : "Save Changes"}
